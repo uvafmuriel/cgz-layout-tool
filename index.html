@@ -96,7 +96,22 @@
     </div>
     <div class="form-section">
       <div class="section-title"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Event layout map</div>
-      <div class="field-row full"><div class="field-group"><label class="field-label" for="event-location">Location <span class="req-tag">required</span></label><select id="event-location" onchange="loadMap()"><option value="">Select a location...</option><option>Amphitheater</option><option>Homer Flat (South Lawn)</option><option>Pavilion Gardens</option><option>Rotunda – North exterior</option><option>Rotunda – South exterior</option></select></div></div>
+      <div class="field-row full"><div class="field-group"><label class="field-label" for="event-location">Location <span class="req-tag">required</span></label><select id="event-location" onchange="loadMap()"><option value="">Select a location...</option>
+            <option>Amphitheater</option>
+            <option>Homer Flat</option>
+            <option>The Lawn</option>
+            <option>Pavilion I</option>
+            <option>Pavilion II</option>
+            <option>Pavilion III</option>
+            <option>Pavilion IV</option>
+            <option>Pavilion V</option>
+            <option>Pavilion VI</option>
+            <option>Pavilion VII</option>
+            <option>Pavilion VIII</option>
+            <option>Pavilion IX</option>
+            <option>Pavilion X</option>
+            <option>Rotunda</option>
+          </select></div></div>
       <div id="map-placeholder" class="map-no-location">Select a location above to load the site map.</div>
       <div id="map-container" style="display:none;"></div>
       <div id="map-tools" style="display:none;">
@@ -132,11 +147,20 @@
   <script>
     const POWER_AUTOMATE_URL = "https://default7b3480c7370748738b77e216733a65.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/e2f38e9d483f4625a6739d146588a32a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=VU0Th2HD46yJzCwiikF4TL-qxNJ1kWYo7y6ThgnMGcc";
     const VENUE_COORDS = {
-      'Amphitheater': { lat: 38.03583, lng: -78.50083, zoom: 19 },
-      'Homer Flat (South Lawn)': { lat: 38.03260, lng: -78.50330, zoom: 19 },
-      'Pavilion Gardens': { lat: 38.03400, lng: -78.50335, zoom: 18 },
-      'Rotunda – North exterior': { lat: 38.03555, lng: -78.50350, zoom: 20 },
-      'Rotunda – South exterior': { lat: 38.03520, lng: -78.50350, zoom: 20 },
+      'Amphitheater':    { lat: 38.033710, lng: -78.505767, zoom: 19 },
+      'Homer Flat':      { lat: 38.033349, lng: -78.504687, zoom: 19 },
+      'The Lawn':        { lat: 38.034751, lng: -78.503914, zoom: 18 },
+      'Pavilion I':      { lat: 38.035706, lng: -78.504315, zoom: 20 },
+      'Pavilion II':     { lat: 38.035141, lng: -78.502660, zoom: 20 },
+      'Pavilion III':    { lat: 38.035453, lng: -78.504547, zoom: 20 },
+      'Pavilion IV':     { lat: 38.034833, lng: -78.502870, zoom: 20 },
+      'Pavilion V':      { lat: 38.035147, lng: -78.504691, zoom: 20 },
+      'Pavilion VI':     { lat: 38.034586, lng: -78.503017, zoom: 20 },
+      'Pavilion VII':    { lat: 38.034828, lng: -78.504890, zoom: 20 },
+      'Pavilion VIII':   { lat: 38.034209, lng: -78.503166, zoom: 20 },
+      'Pavilion IX':     { lat: 38.034384, lng: -78.505127, zoom: 20 },
+      'Pavilion X':      { lat: 38.033826, lng: -78.503349, zoom: 20 },
+      'Rotunda':         { lat: 38.035925, lng: -78.503251, zoom: 20 },
     }
     
     const PIN_TYPES = [
