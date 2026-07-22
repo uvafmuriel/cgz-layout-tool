@@ -116,6 +116,7 @@
       <div id="map-container" style="display:none;"></div>
       <div id="map-tools" style="display:none;">
         <div class="pin-toolbar" id="pin-toolbar"></div>
+        <div id="pin-hint" style="font-size:12px;color:#E57200;font-weight:500;min-height:18px;margin-bottom:4px;"></div>
         <div class="custom-pin-row"><input type="text" id="custom-pin-input" placeholder="Custom resource label (e.g. DJ Booth)"><button onclick="addCustomPin()">+ Add</button></div>
         <div class="map-actions"><button class="btn-undo" onclick="undoPin()">↩ Undo</button><button class="btn-clear" onclick="clearPins()">Clear all</button><span style="flex:1;"></span><span id="pin-counter" style="font-size:12px;color:#888780;"></span></div>
         <div class="pin-list" id="pin-list"></div>
@@ -164,79 +165,141 @@
     }
     
     const PIN_TYPES = [
-      { id: 'food-truck',    label: 'Food Truck',          emoji: '🚚', color: '#E57200' },
-      { id: 'tent',          label: 'Tent',                emoji: '⛺',     color: '#232D4B' },
-      { id: 'stage',         label: 'Stage',               emoji: '🎤', color: '#8B1A1A' },
-      { id: 'table',         label: 'Tables/Chairs',       emoji: '🪑', color: '#8B6A1A' },
-      { id: 'pa',            label: 'PA / Sound',          emoji: '🔊', color: '#5A3A8B' },
-      { id: 'lighting',      label: 'Lighting',            emoji: '💡', color: '#E6B800' },
-      { id: 'water-monster', label: 'Water Monster',       emoji: '💧', color: '#1A6B8B' },
-      { id: 'generator',     label: 'Generator',           emoji: '⚡',     color: '#5A3A8B' },
-      { id: 'porta-john',    label: 'Porta-John',          emoji: '🚽', color: '#3A7A3A' },
-      { id: 'drop-cord',     label: 'Drop/Extension Cord', emoji: '🔌', color: '#B5451B' },
-    ];
+      { id: 'tent',          label: 'Tent',                emoji: '⛺',     color: '#232D4B',  shape: 'rect' },
+      { id: 'stage',         label: 'Stage',               emoji: '🎤', color: '#8B1A1A',  shape: 'rect' },
+      { id: 'food-truck',    label: 'Food Truck',          emoji: '🚚', color: '#E57200',  shape: 'rect' },
+      { id: 'table',         label: 'Tables/Chairs',       emoji: '🪑', color: '#8B6A1A',  shape: 'marker' },
+      { id: 'pa',            label: 'PA / Sound',          emoji: '🔊', color: '#5A3A8B',  shape: 'marker' },
+      { id: 'lighting',      label: 'Lighting',            emoji: '💡', color: '#E6B800',  shape: 'marker' },
+      { id: 'water-monster', label: 'Water Monster',       emoji: '💧', color: '#1A6B8B',  shape: 'marker' },
+      { id: 'generator',     label: 'Generator',           emoji: '⚡',     color: '#5A3A8B',  shape: 'marker' },
+      { id: 'porta-john',    label: 'Porta-John',          emoji: '🚽', color: '#3A7A3A',  shape: 'marker' },
+      { id: 'drop-cord',     label: 'Drop/Extension Cord', emoji: '🔌', color: '#B5451B',  shape: 'marker' },
+    ]
 
-    let customPins=[], activePinType=null, map=null, pins=[], markers=[];
+    let customPins=[], activePinType=null, map=null, pins=[], markers=[], rectFirstCorner=null;
+
+    function getActiveType() {
+      return [...PIN_TYPES,...customPins].find(p=>p.id===activePinType);
+    }
+
     function buildToolbar() {
       const tb=document.getElementById('pin-toolbar'); tb.innerHTML='';
       [...PIN_TYPES,...customPins].forEach(pt=>{
         const btn=document.createElement('button'); btn.className='pin-btn'+(activePinType===pt.id?' active':'');
         const count=pins.filter(p=>p.typeId===pt.id).length;
-        btn.innerHTML='<span class="pin-dot" style="background:'+pt.color+'"></span>'+pt.label+(count?'<span class="pin-count">'+count+'</span>':'');
-        btn.onclick=()=>{ activePinType=activePinType===pt.id?null:pt.id; buildToolbar(); if(map)map.getContainer().style.cursor=activePinType?'crosshair':''; };
+        const shapeHint = pt.shape==='rect' ? ' ▭' : '';
+        btn.innerHTML='<span class="pin-dot" style="background:'+pt.color+'"></span>'+pt.label+shapeHint+(count?'<span class="pin-count">'+count+'</span>':'');
+        btn.onclick=()=>{ activePinType=activePinType===pt.id?null:pt.id; rectFirstCorner=null; buildToolbar(); if(map)map.getContainer().style.cursor=activePinType?'crosshair':''; };
         tb.appendChild(btn);
       });
       const c=document.getElementById('pin-counter'); if(c)c.textContent=pins.length?pins.length+' resource'+(pins.length!==1?'s':'')+' placed':'';
+      // Show hint for rect mode
+      const hint=document.getElementById('pin-hint');
+      if(hint) {
+        const pt=getActiveType();
+        if(pt&&pt.shape==='rect'&&!rectFirstCorner) hint.textContent='Click the first corner of the '+pt.label+' area';
+        else if(pt&&pt.shape==='rect'&&rectFirstCorner) hint.textContent='Click the opposite corner to finish the '+pt.label;
+        else if(pt) hint.textContent='Click the map to place '+pt.label;
+        else hint.textContent='';
+      }
     }
+
     function addCustomPin() {
       const input=document.getElementById('custom-pin-input'), label=input.value.trim(); if(!label)return;
       const colors=['#C0392B','#1ABC9C','#8E44AD','#2980B9','#D35400'];
-      customPins.push({ id:'custom-'+Date.now(), label, emoji:'📍', color:colors[customPins.length%colors.length] });
+      customPins.push({ id:'custom-'+Date.now(), label, emoji:'📍', color:colors[customPins.length%colors.length], shape:'marker' });
       input.value=''; activePinType=customPins[customPins.length-1].id; buildToolbar();
     }
-    function loadMap() {
-      const loc=document.getElementById('event-location').value;
-      const ph=document.getElementById('map-placeholder'), mc=document.getElementById('map-container'), mt=document.getElementById('map-tools');
-      if(!loc||!VENUE_COORDS[loc]){ ph.style.display='flex'; mc.style.display='none'; mt.style.display='none'; return; }
-      ph.style.display='none'; mc.style.display='block'; mt.style.display='block';
-      const v=VENUE_COORDS[loc];
-      if(map){ map.remove(); map=null; } pins=[]; markers=[];
-      // Small delay so container has dimensions before Leaflet init
-      setTimeout(function(){
-        map=L.map('map-container',{ zoomSnap:0.5, attributionControl:false });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{
-          maxZoom:21
-        }).addTo(map);
-        map.setView([v.lat, v.lng], v.zoom);
-        map.invalidateSize();
-        map.on('click',function(e){ if(!activePinType)return; const pt=[...PIN_TYPES,...customPins].find(p=>p.id===activePinType); if(pt)placePin(pt,e.latlng); });
-        buildToolbar(); renderPinList();
-      }, 100);
+
+    function handleMapClick(e) {
+      if(!activePinType) return;
+      const pt=getActiveType();
+      if(!pt) return;
+      if(pt.shape==='rect') {
+        if(!rectFirstCorner) {
+          rectFirstCorner=e.latlng;
+          // Place a temporary marker at first corner
+          const tempIcon=L.divIcon({className:'',html:'<div style="width:10px;height:10px;background:'+pt.color+';border:2px solid #fff;border-radius:50;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>',iconSize:[10,10],iconAnchor:[5,5]});
+          window._tempCorner=L.marker(e.latlng,{icon:tempIcon}).addTo(map);
+          buildToolbar();
+        } else {
+          placeRect(pt, rectFirstCorner, e.latlng);
+          if(window._tempCorner){map.removeLayer(window._tempCorner);window._tempCorner=null;}
+          rectFirstCorner=null;
+          buildToolbar();
+        }
+      } else {
+        placePin(pt, e.latlng);
+      }
     }
-    function placePin(pt,latlng) {
-      const pin={id:Date.now(),typeId:pt.id,label:pt.label,emoji:pt.emoji,color:pt.color,latlng:latlng,note:''};
+
+    function placeRect(pt, corner1, corner2) {
+      const bounds = L.latLngBounds(corner1, corner2);
+      const pin = {id:Date.now(), typeId:pt.id, label:pt.label, emoji:pt.emoji, color:pt.color, bounds:bounds, note:'', isRect:true};
       pins.push(pin);
-      const icon=L.divIcon({ className:'', html:'<div style="background:'+pt.color+';width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;cursor:grab;">'+pt.emoji+'</div>', iconSize:[28,28], iconAnchor:[14,14] });
-      const marker=L.marker(latlng,{icon,draggable:true}).addTo(map);
-      marker.bindPopup(function(){
-        const div=document.createElement('div'); div.style.minWidth='180px';
-        div.innerHTML='<div style="font-weight:600;font-size:13px;margin-bottom:6px;">'+pt.emoji+' '+pt.label+'</div><input type="text" id="note-'+pin.id+'" value="'+(pin.note||'')+'" placeholder="Add a note" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;"><div style="display:flex;gap:6px;"><button onclick="saveNote('+pin.id+')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button onclick="removePin('+pin.id+')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
-        return div;
-      }); marker.openPopup();
-      marker._pinId=pin.id; markers.push(marker);
-      marker.on('dragend',function(){ pin.latlng=marker.getLatLng(); });
+      const rect = L.rectangle(bounds, {
+        color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25,
+        dashArray: '6,3',
+      }).addTo(map);
+      // Add label in center
+      const center = bounds.getCenter();
+      const labelMarker = L.marker(center, {
+        icon: L.divIcon({
+          className:'',
+          html:'<div style="background:'+pt.color+';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">'+pt.emoji+' '+pt.label+'</div>',
+          iconAnchor:[0,0],
+        }),
+        interactive: false,
+      }).addTo(map);
+      rect.on('click', function(){
+        const popup = L.popup().setLatLng(center).setContent(makePopup(pin, pt)).openOn(map);
+      });
+      rect._pinId=pin.id;
+      rect._labelMarker=labelMarker;
+      markers.push(rect);
       buildToolbar(); renderPinList();
     }
+
+    function placePin(pt, latlng) {
+      const pin={id:Date.now(),typeId:pt.id,label:pt.label,emoji:pt.emoji,color:pt.color,latlng:latlng,note:'',isRect:false};
+      pins.push(pin);
+      const icon=L.divIcon({className:'',html:'<div style="background:'+pt.color+';width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;cursor:grab;">'+pt.emoji+'</div>',iconSize:[28,28],iconAnchor:[14,14]});
+      const marker=L.marker(latlng,{icon,draggable:true}).addTo(map);
+      marker.bindPopup(function(){ return makePopup(pin, pt); });
+      marker.openPopup();
+      marker._pinId=pin.id; markers.push(marker);
+      marker.on('dragend',function(){pin.latlng=marker.getLatLng();});
+      buildToolbar(); renderPinList();
+    }
+
+    function makePopup(pin, pt) {
+      const div=document.createElement('div'); div.style.minWidth='180px';
+      div.innerHTML='<div style="font-weight:600;font-size:13px;margin-bottom:6px;">'+pt.emoji+' '+pt.label+'</div><input type="text" id="note-'+pin.id+'" value="'+(pin.note||'')+'" placeholder="Add a note (e.g. 40x60 tent)" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;"><div style="display:flex;gap:6px;"><button onclick="saveNote('+pin.id+')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button onclick="removePin('+pin.id+')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
+      return div;
+    }
+
     function saveNote(id){ const i=document.getElementById('note-'+id),p=pins.find(x=>x.id===id); if(p&&i)p.note=i.value.trim(); map.closePopup(); renderPinList(); }
-    function removePin(id){ pins=pins.filter(p=>p.id!==id); const m=markers.find(x=>x._pinId===id); if(m){map.removeLayer(m);markers=markers.filter(x=>x!==m);} map.closePopup(); buildToolbar(); renderPinList(); }
+    function removePin(id){
+      pins=pins.filter(p=>p.id!==id);
+      const m=markers.find(x=>x._pinId===id);
+      if(m){
+        map.removeLayer(m);
+        if(m._labelMarker) map.removeLayer(m._labelMarker);
+        markers=markers.filter(x=>x!==m);
+      }
+      map.closePopup(); buildToolbar(); renderPinList();
+    }
     function undoPin(){ if(pins.length)removePin(pins[pins.length-1].id); }
-    function clearPins(){ markers.forEach(m=>map.removeLayer(m)); pins=[];markers=[]; buildToolbar(); renderPinList(); }
+    function clearPins(){ markers.forEach(m=>{map.removeLayer(m);if(m._labelMarker)map.removeLayer(m._labelMarker);}); pins=[];markers=[];rectFirstCorner=null;if(window._tempCorner){map.removeLayer(window._tempCorner);window._tempCorner=null;} buildToolbar(); renderPinList(); }
+
     function renderPinList() {
       const c=document.getElementById('pin-list'); if(!c)return;
       if(!pins.length){ c.innerHTML='<div class="pin-list-title">Placed resources</div><div style="font-size:13px;color:#888780;">No resources placed yet. Select a type and click the map.</div>'; return; }
       c.innerHTML='<div class="pin-list-title">Placed resources ('+pins.length+')</div>'+
-        pins.map(p=>'<div class="pin-list-item"><div class="pin-list-dot" style="background:'+p.color+'"></div><span class="pin-list-name">'+p.label+'</span>'+(p.note?'<span class="pin-list-note"> — '+p.note+'</span>':'')+'<span class="pin-list-remove" onclick="removePin('+p.id+')">×</span></div>').join('');
+        pins.map(p=>'<div class="pin-list-item"><div class="pin-list-dot" style="background:'+p.color+'"></div><span class="pin-list-name">'+p.label+(p.isRect?' (area)':'')+'</span>'+(p.note?'<span class="pin-list-note"> — '+p.note+'</span>':'')+'<span class="pin-list-remove" onclick="removePin('+p.id+')">×</span></div>').join('');
     }
+
     async function submitForm() {
       const req=['org-name','org-email','event-location']; let err=null;
       req.forEach(id=>{ const el=document.getElementById(id); if(!el.value.trim()){el.classList.add('error');if(!err)err=el;}else el.classList.remove('error'); });
