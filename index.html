@@ -167,17 +167,18 @@
     const PIN_TYPES = [
       { id: 'tent',          label: 'Tent',                emoji: '⛺',     color: '#232D4B',  shape: 'rect' },
       { id: 'stage',         label: 'Stage',               emoji: '🎤', color: '#8B1A1A',  shape: 'rect' },
-      { id: 'food-truck',    label: 'Food Truck',          emoji: '🚚', color: '#E57200',  shape: 'rect' },
-      { id: 'table',         label: 'Tables/Chairs',       emoji: '🪑', color: '#8B6A1A',  shape: 'marker' },
+      { id: 'chairs',        label: 'Chairs',              emoji: '🪑', color: '#8B6A1A',  shape: 'rect' },
+      { id: 'food-truck',    label: 'Food Truck',          emoji: '🚚', color: '#E57200',  shape: 'marker' },
+      { id: 'table',         label: 'Table',               emoji: '📋', color: '#6B5B3A',  shape: 'marker' },
       { id: 'pa',            label: 'PA / Sound',          emoji: '🔊', color: '#5A3A8B',  shape: 'marker' },
       { id: 'lighting',      label: 'Lighting',            emoji: '💡', color: '#E6B800',  shape: 'marker' },
       { id: 'water-monster', label: 'Water Monster',       emoji: '💧', color: '#1A6B8B',  shape: 'marker' },
       { id: 'generator',     label: 'Generator',           emoji: '⚡',     color: '#5A3A8B',  shape: 'marker' },
       { id: 'porta-john',    label: 'Porta-John',          emoji: '🚽', color: '#3A7A3A',  shape: 'marker' },
       { id: 'drop-cord',     label: 'Drop/Extension Cord', emoji: '🔌', color: '#B5451B',  shape: 'marker' },
-    ]
+    ];
 
-    let customPins=[], activePinType=null, map=null, pins=[], markers=[], rectFirstCorner=null;
+    let customPins=[], activePinType=null, map=null, pins=[], markers=[];
 
     function getActiveType() {
       return [...PIN_TYPES,...customPins].find(p=>p.id===activePinType);
@@ -195,10 +196,9 @@
       });
       const fb=document.getElementById('btn-finish'); if(fb){const apt=getActiveType(); fb.style.display=(apt&&apt.shape==='rect'&&polyPoints.length>=3)?'inline-block':'none';}
       const c=document.getElementById('pin-counter'); if(c)c.textContent=pins.length?pins.length+' resource'+(pins.length!==1?'s':'')+' placed':'';
-      // Show hint for rect mode
-      const hint=document.getElementById('pin-hint');
-      if(hint) {
+      if(document.getElementById('pin-hint')) {
         const pt=getActiveType();
+        const hint=document.getElementById('pin-hint');
         if(pt&&pt.shape==='rect'&&polyPoints.length===0) hint.textContent='Click corners to trace the '+pt.label+' area. Click "Finish shape" when done.';
         else if(pt&&pt.shape==='rect'&&polyPoints.length>0) hint.textContent=polyPoints.length+' corner'+(polyPoints.length!==1?'s':'')+' placed. '+(polyPoints.length<3?'Keep clicking corners.':'Click "Finish shape" or add more corners.');
         else if(pt) hint.textContent='Click the map to place '+pt.label;
