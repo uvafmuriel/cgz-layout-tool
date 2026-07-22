@@ -118,7 +118,7 @@
         <div class="pin-toolbar" id="pin-toolbar"></div>
         <div id="pin-hint" style="font-size:12px;color:#E57200;font-weight:500;min-height:18px;margin-bottom:4px;"></div>
         <div class="custom-pin-row"><input type="text" id="custom-pin-input" placeholder="Custom resource label (e.g. DJ Booth)"><button onclick="addCustomPin()">+ Add</button></div>
-        <div class="map-actions"><button class="btn-undo" onclick="undoPin()">↩ Undo</button><button class="btn-clear" onclick="clearPins()">Clear all</button><span style="flex:1;"></span><span id="pin-counter" style="font-size:12px;color:#888780;"></span></div>
+        <div class="map-actions"><button class="btn-undo" onclick="undoPin()">↩ Undo</button><button id="btn-finish" onclick="finishPolygon()" style="display:none;background:#E57200;color:#fff;border:none;font-weight:600;">Finish shape</button><button class="btn-clear" onclick="clearPins()">Clear all</button><span style="flex:1;"></span><span id="pin-counter" style="font-size:12px;color:#888780;"></span></div>
         <div class="pin-list" id="pin-list"></div>
       </div>
     </div>
@@ -190,16 +190,17 @@
         const count=pins.filter(p=>p.typeId===pt.id).length;
         const shapeHint = pt.shape==='rect' ? ' ▭' : '';
         btn.innerHTML='<span class="pin-dot" style="background:'+pt.color+'"></span>'+pt.label+shapeHint+(count?'<span class="pin-count">'+count+'</span>':'');
-        btn.onclick=()=>{ activePinType=activePinType===pt.id?null:pt.id; rectFirstCorner=null; buildToolbar(); if(map)map.getContainer().style.cursor=activePinType?'crosshair':''; };
+        btn.onclick=()=>{ activePinType=activePinType===pt.id?null:pt.id; clearPolyTemp(); buildToolbar(); if(map)map.getContainer().style.cursor=activePinType?'crosshair':''; };
         tb.appendChild(btn);
       });
+      const fb=document.getElementById('btn-finish'); if(fb){const apt=getActiveType(); fb.style.display=(apt&&apt.shape==='rect'&&polyPoints.length>=3)?'inline-block':'none';}
       const c=document.getElementById('pin-counter'); if(c)c.textContent=pins.length?pins.length+' resource'+(pins.length!==1?'s':'')+' placed':'';
       // Show hint for rect mode
       const hint=document.getElementById('pin-hint');
       if(hint) {
         const pt=getActiveType();
-        if(pt&&pt.shape==='rect'&&!rectFirstCorner) hint.textContent='Click the first corner of the '+pt.label+' area';
-        else if(pt&&pt.shape==='rect'&&rectFirstCorner) hint.textContent='Click the opposite corner to finish the '+pt.label;
+        if(pt&&pt.shape==='rect'&&polyPoints.length===0) hint.textContent='Click corners to trace the '+pt.label+' area. Click "Finish shape" when done.';
+        else if(pt&&pt.shape==='rect'&&polyPoints.length>0) hint.textContent=polyPoints.length+' corner'+(polyPoints.length!==1?'s':'')+' placed. '+(polyPoints.length<3?'Keep clicking corners.':'Click "Finish shape" or add more corners.');
         else if(pt) hint.textContent='Click the map to place '+pt.label;
         else hint.textContent='';
       }
@@ -212,52 +213,63 @@
       input.value=''; activePinType=customPins[customPins.length-1].id; buildToolbar();
     }
 
+    let polyPoints = [];
+    let polyTempMarkers = [];
+    let polyTempLine = null;
+
     function handleMapClick(e) {
       if(!activePinType) return;
       const pt=getActiveType();
       if(!pt) return;
       if(pt.shape==='rect') {
-        if(!rectFirstCorner) {
-          rectFirstCorner=e.latlng;
-          // Place a temporary marker at first corner
-          const tempIcon=L.divIcon({className:'',html:'<div style="width:10px;height:10px;background:'+pt.color+';border:2px solid #fff;border-radius:50;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>',iconSize:[10,10],iconAnchor:[5,5]});
-          window._tempCorner=L.marker(e.latlng,{icon:tempIcon}).addTo(map);
-          buildToolbar();
-        } else {
-          placeRect(pt, rectFirstCorner, e.latlng);
-          if(window._tempCorner){map.removeLayer(window._tempCorner);window._tempCorner=null;}
-          rectFirstCorner=null;
-          buildToolbar();
+        // Polygon mode: click corners, double-click to finish
+        polyPoints.push(e.latlng);
+        // Temp corner marker
+        const dot=L.circleMarker(e.latlng,{radius:4,color:'#fff',fillColor:pt.color,fillOpacity:1,weight:2}).addTo(map);
+        polyTempMarkers.push(dot);
+        // Draw preview line
+        if(polyTempLine){map.removeLayer(polyTempLine);}
+        if(polyPoints.length>1){
+          polyTempLine=L.polyline(polyPoints,{color:pt.color,weight:2,dashArray:'6,3'}).addTo(map);
         }
+        buildToolbar();
       } else {
         placePin(pt, e.latlng);
       }
     }
 
-    function placeRect(pt, corner1, corner2) {
-      const bounds = L.latLngBounds(corner1, corner2);
-      const pin = {id:Date.now(), typeId:pt.id, label:pt.label, emoji:pt.emoji, color:pt.color, bounds:bounds, note:'', isRect:true};
+    function finishPolygon() {
+      const pt=getActiveType();
+      if(!pt||polyPoints.length<3) return;
+      placeArea(pt, [...polyPoints]);
+      clearPolyTemp();
+      buildToolbar();
+    }
+
+    function clearPolyTemp() {
+      polyPoints=[];
+      polyTempMarkers.forEach(m=>map.removeLayer(m));
+      polyTempMarkers=[];
+      if(polyTempLine){map.removeLayer(polyTempLine);polyTempLine=null;}
+    }
+
+    function placeArea(pt, points) {
+      const pin={id:Date.now(),typeId:pt.id,label:pt.label,emoji:pt.emoji,color:pt.color,points:points,note:'',isRect:true};
       pins.push(pin);
-      const rect = L.rectangle(bounds, {
-        color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25,
-        dashArray: '6,3',
+      const poly=L.polygon(points,{
+        color:pt.color,weight:2,fillColor:pt.color,fillOpacity:0.25,dashArray:'6,3',
       }).addTo(map);
-      // Add label in center
-      const center = bounds.getCenter();
-      const labelMarker = L.marker(center, {
-        icon: L.divIcon({
-          className:'',
-          html:'<div style="background:'+pt.color+';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">'+pt.emoji+' '+pt.label+'</div>',
-          iconAnchor:[0,0],
-        }),
-        interactive: false,
+      const center=poly.getBounds().getCenter();
+      const labelMarker=L.marker(center,{
+        icon:L.divIcon({className:'',html:'<div style="background:'+pt.color+';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">'+pt.emoji+' '+pt.label+'</div>',iconAnchor:[0,0]}),
+        interactive:false,
       }).addTo(map);
-      rect.on('click', function(){
-        const popup = L.popup().setLatLng(center).setContent(makePopup(pin, pt)).openOn(map);
+      poly.on('click',function(){
+        L.popup().setLatLng(center).setContent(makePopup(pin,pt)).openOn(map);
       });
-      rect._pinId=pin.id;
-      rect._labelMarker=labelMarker;
-      markers.push(rect);
+      poly._pinId=pin.id;
+      poly._labelMarker=labelMarker;
+      markers.push(poly);
       buildToolbar(); renderPinList();
     }
 
@@ -290,8 +302,8 @@
       }
       map.closePopup(); buildToolbar(); renderPinList();
     }
-    function undoPin(){ if(pins.length)removePin(pins[pins.length-1].id); }
-    function clearPins(){ markers.forEach(m=>{map.removeLayer(m);if(m._labelMarker)map.removeLayer(m._labelMarker);}); pins=[];markers=[];rectFirstCorner=null;if(window._tempCorner){map.removeLayer(window._tempCorner);window._tempCorner=null;} buildToolbar(); renderPinList(); }
+    function undoPin(){ if(polyPoints.length>0){polyPoints.pop();const m=polyTempMarkers.pop();if(m)map.removeLayer(m);if(polyTempLine){map.removeLayer(polyTempLine);polyTempLine=null;}if(polyPoints.length>1)polyTempLine=L.polyline(polyPoints,{color:getActiveType().color,weight:2,dashArray:'6,3'}).addTo(map);buildToolbar();} else if(pins.length)removePin(pins[pins.length-1].id); }
+    function clearPins(){ markers.forEach(m=>{map.removeLayer(m);if(m._labelMarker)map.removeLayer(m._labelMarker);}); pins=[];markers=[]; clearPolyTemp(); buildToolbar(); renderPinList(); }
 
     function renderPinList() {
       const c=document.getElementById('pin-list'); if(!c)return;
