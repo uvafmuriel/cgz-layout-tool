@@ -213,7 +213,26 @@
       input.value=''; activePinType=customPins[customPins.length-1].id; buildToolbar();
     }
 
-    let polyPoints = [];
+    function loadMap() {
+      const loc=document.getElementById('event-location').value;
+      const ph=document.getElementById('map-placeholder'), mc=document.getElementById('map-container'), mt=document.getElementById('map-tools');
+      if(!loc||!VENUE_COORDS[loc]){ ph.style.display='flex'; mc.style.display='none'; mt.style.display='none'; return; }
+      ph.style.display='none'; mc.style.display='block'; mt.style.display='block';
+      const v=VENUE_COORDS[loc];
+      if(map){ map.remove(); map=null; } pins=[]; markers=[]; clearPolyTemp();
+      setTimeout(function(){
+        map=L.map('map-container',{ zoomSnap:0.5, attributionControl:false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{
+          maxZoom:21
+        }).addTo(map);
+        map.setView([v.lat, v.lng], v.zoom);
+        map.invalidateSize();
+        map.on('click',function(e){ handleMapClick(e); });
+        buildToolbar(); renderPinList();
+      }, 100);
+    }
+
+        let polyPoints = [];
     let polyTempMarkers = [];
     let polyTempLine = null;
 
