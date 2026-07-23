@@ -62,6 +62,12 @@
     .btn-submit:hover { background: #c96400; }
     .success-msg { display: none; background: #eaf3e0; border: 1px solid #5a8a2e; border-radius: 12px; padding: 1.5rem; text-align: center; color: #2e5a10; font-size: 16px; font-weight: 500; margin-top: 1rem; }
     .error-banner { display: none; background: #fdecea; border: 1px solid #c0392b; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #7b1a13; margin-top: 1rem; }
+    /* FM Review mode */
+    .fm-banner { display:none; background:#232D4B; color:#fff; padding:10px 16px; border-radius:8px; margin-bottom:12px; font-size:14px; }
+    .fm-banner.show { display:flex; align-items:center; justify-content:space-between; }
+    .fm-banner button { background:#E57200; color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:13px; font-weight:500; cursor:pointer; font-family:inherit; }
+    .fm-pin-dot { background:#C0392B !important; }
+
     .site-footer { max-width: 780px; margin: 2rem auto 0; padding: 1.5rem 1rem; border-top: 1px solid #e4e2dc; }
     .footer-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #232D4B; margin-bottom: 10px; }
     .footer-contacts { display: flex; flex-wrap: wrap; gap: 1.25rem; }
@@ -350,6 +356,7 @@
         pinData:pins.map(p=>p.label+(p.note?' ('+p.note+')':'')).join(', ')||'None',
         mapScreenshot:mapShot,
         submittedAt:new Date().toLocaleString('en-US',{timeZone:'America/New_York'}),
+        reviewLink:getReviewLink(),
       };
       document.querySelector('.btn-submit').disabled=true;
       document.getElementById('error-banner').style.display='none';
@@ -372,6 +379,96 @@
       document.getElementById('error-banner').style.display='none';
     }
     document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>el.classList.remove('error')));
+
+    // ── FM Review Mode ──
+    const FM_PIN = { id:'fm-suggestion', label:'FM Suggestion', emoji:'🚩', color:'#C0392B', shape:'marker' };
+
+    function getReviewLink() {
+      // Encode current pins + location into a URL hash
+      const data = {
+        loc: document.getElementById('event-location').value,
+        org: document.getElementById('org-name').value,
+        email: document.getElementById('org-email').value,
+        pins: pins.map(p => ({
+          typeId:p.typeId, label:p.label, emoji:p.emoji, color:p.color,
+          isRect:p.isRect,
+          latlng: p.isRect ? null : (p.latlng ? {lat:p.latlng.lat,lng:p.latlng.lng} : null),
+          points: p.isRect && p.points ? p.points.map(ll=>({lat:ll.lat,lng:ll.lng})) : null,
+          note:p.note
+        }))
+      };
+      return window.location.origin + window.location.pathname + '#review=' + encodeURIComponent(JSON.stringify(data));
+    }
+
+    function loadFromURL() {
+      const hash = window.location.hash;
+      if (!hash.startsWith('#review=')) return;
+      try {
+        const data = JSON.parse(decodeURIComponent(hash.slice(8)));
+        // Show FM banner
+        document.getElementById('fm-banner').classList.add('show');
+        // Set organizer info
+        if(data.org) document.getElementById('org-name').value = data.org;
+        if(data.email) document.getElementById('org-email').value = data.email;
+        // Set location and load map
+        if(data.loc) {
+          document.getElementById('event-location').value = data.loc;
+          loadMap();
+          // Wait for map to init, then place pins
+          setTimeout(function(){
+            if(data.pins) {
+              data.pins.forEach(p => {
+                const pt = {id:p.typeId, label:p.label, emoji:p.emoji, color:p.color, shape:p.isRect?'rect':'marker'};
+                if(p.isRect && p.points) {
+                  const latlngs = p.points.map(ll=>L.latLng(ll.lat,ll.lng));
+                  placeArea(pt, latlngs);
+                  if(p.note) { pins[pins.length-1].note = p.note; }
+                } else if(p.latlng) {
+                  placePin(pt, L.latLng(p.latlng.lat, p.latlng.lng));
+                  if(p.note) { pins[pins.length-1].note = p.note; saveNote(pins[pins.length-1].id); }
+                }
+              });
+              renderPinList();
+              // Add FM suggestion pin type to toolbar
+              if(!PIN_TYPES.find(x=>x.id==='fm-suggestion')) PIN_TYPES.push(FM_PIN);
+              buildToolbar();
+            }
+          }, 500);
+        }
+      } catch(e) { console.warn('Failed to load review data:', e); }
+    }
+
+    async function sendBackToOrganizer() {
+      const email = document.getElementById('org-email').value;
+      const loc = document.getElementById('event-location').value;
+      if(!email) { alert('No organizer email found.'); return; }
+      // Capture screenshot
+      let mapShot = '';
+      if(map && pins.length) {
+        try {
+          const canvas = await html2canvas(document.getElementById('map-container'),{useCORS:true,scale:2});
+          mapShot = canvas.toDataURL('image/png');
+          // Open image in new tab so FM can save/copy it
+          const w = window.open('');
+          w.document.write('<html><head><title>Layout with FM edits</title></head><body style="margin:0;background:#f3f1ec;padding:20px;font-family:sans-serif;">');
+          w.document.write('<h2 style="color:#232D4B;">Event Layout with FM Edits</h2>');
+          w.document.write('<p style="color:#5a5957;">Location: '+loc+'</p>');
+          w.document.write('<p style="color:#5a5957;">Right-click the image below to save, then attach to your email reply.</p>');
+          w.document.write('<img src="'+mapShot+'" style="max-width:100%;border:1px solid #ddd;border-radius:8px;">');
+          w.document.write('<p style="margin-top:12px;font-size:13px;color:#888;">FM suggestions shown in red.</p>');
+          w.document.write('</body></html>');
+          w.document.close();
+        } catch(e) { console.warn('Screenshot failed:', e); }
+      }
+      // Also open mailto
+      const subject = encodeURIComponent('[CGZ Layout Update] ' + loc);
+      const body = encodeURIComponent('Hi,\n\nFM has reviewed your event layout for ' + loc + ' and made some suggestions. Please see the attached updated layout image.\n\nPlease review and let us know if you have questions.\n\nThanks,\nUriel An\nCentral Grounds Zone Event & Maintenance Coordinator\n(434) 906-0976');
+      window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
+    }
+
+    // Load review data on page load
+    loadFromURL();
+
   </script>
 </body>
 </html>
