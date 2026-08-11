@@ -394,7 +394,7 @@
 
     function placeArea(locId, pt, points) {
       const loc = locations.find(l => l.id === locId);
-      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, points: points, note: '', isRect: true };
+      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, points: points, note: '', qty: 1, isRect: true };
       loc.pins.push(pin);
       const poly = L.polygon(points, { color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25, dashArray: '6,3' }).addTo(loc.map);
       const center = poly.getBounds().getCenter();
@@ -407,7 +407,7 @@
 
     function placePin(locId, pt, latlng) {
       const loc = locations.find(l => l.id === locId);
-      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, latlng: latlng, note: '', isRect: false };
+      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, latlng: latlng, note: '', qty: 1, isRect: false };
       loc.pins.push(pin);
       const icon = L.divIcon({ className: '', html: '<div style="background:' + pt.color + ';width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;cursor:grab;">' + pt.emoji + '</div>', iconSize: [28, 28], iconAnchor: [14, 14] });
       const marker = L.marker(latlng, { icon, draggable: true }).addTo(loc.map);
@@ -421,15 +421,22 @@
 
     function makePopup(locId, pin, pt) {
       const div = document.createElement('div');
-      div.style.minWidth = '180px';
-      div.innerHTML = '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + pt.emoji + ' ' + pt.label + '</div><input type="text" id="note-' + pin.id + '" value="' + (pin.note || '') + '" placeholder="Add a note" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;"><div style="display:flex;gap:6px;"><button type="button" onclick="saveNote(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button type="button" onclick="removePin(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
+      div.style.minWidth = '190px';
+      div.innerHTML = '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + pt.emoji + ' ' + pt.label + '</div>' +
+        '<label style="font-size:11px;color:#888;display:block;margin-bottom:2px;">Quantity</label>' +
+        '<input type="number" min="1" id="qty-' + pin.id + '" value="' + (pin.qty || 1) + '" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;">' +
+        '<label style="font-size:11px;color:#888;display:block;margin-bottom:2px;">Note</label>' +
+        '<input type="text" id="note-' + pin.id + '" value="' + (pin.note || '') + '" placeholder="Optional note" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;">' +
+        '<div style="display:flex;gap:6px;"><button type="button" onclick="saveNote(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button type="button" onclick="removePin(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
       return div;
     }
 
     function saveNote(locId, id) {
       const loc = locations.find(l => l.id === locId);
       const i = document.getElementById('note-' + id), p = loc.pins.find(x => x.id === id);
+      const q = document.getElementById('qty-' + id);
       if (p && i) p.note = i.value.trim();
+      if (p && q) p.qty = Math.max(1, parseInt(q.value, 10) || 1);
       loc.map.closePopup();
       renderPinList(locId);
     }
@@ -472,7 +479,7 @@
       if (!c) return;
       if (!loc.pins.length) { c.innerHTML = '<div class="pin-list-title">Placed resources</div><div style="font-size:13px;color:#888780;">No resources placed yet. Select a type and click the map.</div>'; return; }
       c.innerHTML = '<div class="pin-list-title">Placed resources (' + loc.pins.length + ')</div>' +
-        loc.pins.map(p => '<div class="pin-list-item"><div class="pin-list-dot" style="background:' + p.color + '"></div><span class="pin-list-name">' + p.label + (p.isRect ? ' (area)' : '') + '</span>' + (p.note ? '<span class="pin-list-note"> \u2014 ' + p.note + '</span>' : '') + '<span class="pin-list-remove" onclick="removePin(\'' + locId + '\',' + p.id + ')">\u00d7</span></div>').join('');
+        loc.pins.map(p => '<div class="pin-list-item"><div class="pin-list-dot" style="background:' + p.color + '"></div><span class="pin-list-name">' + p.label + (p.qty && p.qty > 1 ? ' \u00d7' + p.qty : '') + (p.isRect ? ' (area)' : '') + '</span>' + (p.note ? '<span class="pin-list-note"> \u2014 ' + p.note + '</span>' : '') + '<span class="pin-list-remove" onclick="removePin(\'' + locId + '\',' + p.id + ')">\u00d7</span></div>').join('');
     }
 
     // ── Submit ──
@@ -502,7 +509,7 @@
         }
         locationData.push({
           name: loc.name,
-          pins: loc.pins.map(p => p.label + (p.note ? ' (' + p.note + ')' : '')).join(', ') || 'None',
+          pins: loc.pins.map(p => p.label + (p.qty && p.qty > 1 ? ' x' + p.qty : '') + (p.note ? ' (' + p.note + ')' : '')).join(', ') || 'None',
           screenshot: shot
         });
       }
@@ -556,7 +563,7 @@
         locations: locations.filter(l => l.name).map(loc => ({
           name: loc.name,
           pins: loc.pins.map(p => ({
-            typeId: p.typeId, label: p.label, emoji: p.emoji, color: p.color, isRect: p.isRect,
+            typeId: p.typeId, label: p.label, emoji: p.emoji, color: p.color, isRect: p.isRect, qty: p.qty || 1,
             latlng: p.isRect ? null : (p.latlng ? { lat: p.latlng.lat, lng: p.latlng.lng } : null),
             points: p.isRect && p.points ? p.points.map(ll => ({ lat: ll.lat, lng: ll.lng })) : null,
             note: p.note
@@ -585,8 +592,8 @@
             if (!loc || !loc.map) return;
             (locData.pins || []).forEach(p => {
               const pt = { id: p.typeId, label: p.label, emoji: p.emoji, color: p.color, shape: p.isRect ? 'rect' : 'marker' };
-              if (p.isRect && p.points) { placeArea(loc.id, pt, p.points.map(ll => L.latLng(ll.lat, ll.lng))); if (p.note) loc.pins[loc.pins.length-1].note = p.note; }
-              else if (p.latlng) { placePin(loc.id, pt, L.latLng(p.latlng.lat, p.latlng.lng)); if (p.note) { loc.pins[loc.pins.length-1].note = p.note; } }
+              if (p.isRect && p.points) { placeArea(loc.id, pt, p.points.map(ll => L.latLng(ll.lat, ll.lng))); if (p.note) loc.pins[loc.pins.length-1].note = p.note; if (p.qty) loc.pins[loc.pins.length-1].qty = p.qty; }
+              else if (p.latlng) { placePin(loc.id, pt, L.latLng(p.latlng.lat, p.latlng.lng)); if (p.note) { loc.pins[loc.pins.length-1].note = p.note; } if (p.qty) { loc.pins[loc.pins.length-1].qty = p.qty; } }
             });
             renderPinList(loc.id);
             buildToolbar(loc.id);
