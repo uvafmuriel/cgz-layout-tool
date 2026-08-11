@@ -77,6 +77,16 @@
     .footer-role { font-size: 11px; color: #888780; }
     .footer-divider { width: 1px; background: #e4e2dc; align-self: stretch; }
     @media (max-width: 540px) { .field-row { grid-template-columns: 1fr; } #map-container { height: 350px; } }
+
+    .location-card { border: 1px solid #e4e2dc; border-radius: 10px; padding: 14px; margin-bottom: 14px; background: #fbfaf8; }
+    .location-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .location-num { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #232D4B; }
+    .loc-remove-btn { background: #fdecea; color: #c0392b; border: none; border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; }
+    .loc-map { height: 460px; width: 100%; border-radius: 10px; border: 1px solid #e4e2dc; margin-top: 4px; }
+    .pin-hint { font-size: 12px; color: #E57200; font-weight: 500; min-height: 18px; margin: 6px 0 4px; }
+    .fm-banner { display: none; background: #232D4B; color: #fff; padding: 10px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 14px; }
+    .fm-banner.show { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .fm-banner button { background: #E57200; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; }
   </style>
 </head>
 <body>
@@ -87,6 +97,11 @@
       <h1>CGZ Event Layout Tool</h1>
       <p>Place your resources on the venue map so FM knows exactly where everything goes. Attach the screenshot to your 25Live submission.</p>
     </div>
+    <div class="fm-banner" id="fm-banner">
+      <div><strong>FM Review Mode</strong> — the organizer's layout is loaded. Add suggestions, then send back.</div>
+      <button type="button" onclick="sendBackToOrganizer()">Send back with edits</button>
+    </div>
+
     <div class="form-section">
       <div class="section-title"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg> Your info</div>
       <div class="field-row">
@@ -102,31 +117,8 @@
     </div>
     <div class="form-section">
       <div class="section-title"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Event layout map</div>
-      <div class="field-row full"><div class="field-group"><label class="field-label" for="event-location">Location <span class="req-tag">required</span></label><select id="event-location" onchange="loadMap()"><option value="">Select a location...</option>
-            <option>Amphitheater</option>
-            <option>Homer Flat</option>
-            <option>The Lawn</option>
-            <option>Pavilion I</option>
-            <option>Pavilion II</option>
-            <option>Pavilion III</option>
-            <option>Pavilion IV</option>
-            <option>Pavilion V</option>
-            <option>Pavilion VI</option>
-            <option>Pavilion VII</option>
-            <option>Pavilion VIII</option>
-            <option>Pavilion IX</option>
-            <option>Pavilion X</option>
-            <option>Rotunda</option>
-          </select></div></div>
-      <div id="map-placeholder" class="map-no-location">Select a location above to load the site map.</div>
-      <div id="map-container" style="display:none;"></div>
-      <div id="map-tools" style="display:none;">
-        <div class="pin-toolbar" id="pin-toolbar"></div>
-        <div id="pin-hint" style="font-size:12px;color:#E57200;font-weight:500;min-height:18px;margin-bottom:4px;"></div>
-        <div class="custom-pin-row"><input type="text" id="custom-pin-input" placeholder="Custom resource label (e.g. DJ Booth)"><button onclick="addCustomPin()">+ Add</button></div>
-        <div class="map-actions"><button class="btn-undo" onclick="undoPin()">↩ Undo</button><button id="btn-finish" onclick="finishPolygon()" style="display:none;background:#E57200;color:#fff;border:none;font-weight:600;">Finish shape</button><button class="btn-clear" onclick="clearPins()">Clear all</button><span style="flex:1;"></span><span id="pin-counter" style="font-size:12px;color:#888780;"></span></div>
-        <div class="pin-list" id="pin-list"></div>
-      </div>
+      <div id="locations-container"></div>
+      <button type="button" id="add-location-btn" onclick="addLocation()" style="margin-top:4px; background:none; border:1px dashed #232D4B; color:#232D4B; border-radius:8px; padding:9px 16px; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit; display:inline-flex; align-items:center; gap:6px;">+ Add another location</button>
     </div>
     <div class="form-section">
       <div class="section-title"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg> Power and water needs</div>
@@ -153,6 +145,7 @@
   </div>
   <script>
     const POWER_AUTOMATE_URL = "https://default7b3480c7370748738b77e216733a65.ac.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/e2f38e9d483f4625a6739d146588a32a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=VU0Th2HD46yJzCwiikF4TL-qxNJ1kWYo7y6ThgnMGcc";
+
     const VENUE_COORDS = {
       'Amphitheater':    { lat: 38.033710, lng: -78.505767, zoom: 19 },
       'Homer Flat':      { lat: 38.033349, lng: -78.504687, zoom: 19 },
@@ -184,217 +177,390 @@
       { id: 'drop-cord',     label: 'Drop/Extension Cord', emoji: '🔌', color: '#B5451B',  shape: 'marker' },
     ];
 
-    let customPins=[], activePinType=null, map=null, pins=[], markers=[];
+    // ── Multi-location model ──
+    const LOCATION_OPTIONS_JS = `<option>Amphitheater</option><option>Homer Flat</option><option>The Lawn</option><option>Pavilion I</option><option>Pavilion II</option><option>Pavilion III</option><option>Pavilion IV</option><option>Pavilion V</option><option>Pavilion VI</option><option>Pavilion VII</option><option>Pavilion VIII</option><option>Pavilion IX</option><option>Pavilion X</option><option>Rotunda</option>`;
+    // Each location = { id, name, map, pins[], markers[], mapReady }
+    let locations = [];
+    let activePinType = null;
+    let customPins = [];
+    let locCounter = 0;
+    // Per-location polygon drawing state, keyed by location id
+    let polyState = {}; // { [locId]: { points:[], tempMarkers:[], tempLine:null } }
 
     function getActiveType() {
-      return [...PIN_TYPES,...customPins].find(p=>p.id===activePinType);
+      return [...PIN_TYPES, ...customPins].find(p => p.id === activePinType);
     }
 
-    function buildToolbar() {
-      const tb=document.getElementById('pin-toolbar'); tb.innerHTML='';
-      [...PIN_TYPES,...customPins].forEach(pt=>{
-        const btn=document.createElement('button'); btn.className='pin-btn'+(activePinType===pt.id?' active':'');
-        const count=pins.filter(p=>p.typeId===pt.id).length;
-        const shapeHint = pt.shape==='rect' ? ' ▭' : '';
-        btn.innerHTML='<span class="pin-dot" style="background:'+pt.color+'"></span>'+pt.label+shapeHint+(count?'<span class="pin-count">'+count+'</span>':'');
-        btn.onclick=()=>{ activePinType=activePinType===pt.id?null:pt.id; clearPolyTemp(); buildToolbar(); if(map)map.getContainer().style.cursor=activePinType?'crosshair':''; };
-        tb.appendChild(btn);
-      });
-      const fb=document.getElementById('btn-finish'); if(fb){const apt=getActiveType(); fb.style.display=(apt&&apt.shape==='rect'&&polyPoints.length>=3)?'inline-block':'none';}
-      const c=document.getElementById('pin-counter'); if(c)c.textContent=pins.length?pins.length+' resource'+(pins.length!==1?'s':'')+' placed':'';
-      if(document.getElementById('pin-hint')) {
-        const pt=getActiveType();
-        const hint=document.getElementById('pin-hint');
-        if(pt&&pt.shape==='rect'&&polyPoints.length===0) hint.textContent='Click corners to trace the '+pt.label+' area. Click "Finish shape" when done.';
-        else if(pt&&pt.shape==='rect'&&polyPoints.length>0) hint.textContent=polyPoints.length+' corner'+(polyPoints.length!==1?'s':'')+' placed. '+(polyPoints.length<3?'Keep clicking corners.':'Click "Finish shape" or add more corners.');
-        else if(pt) hint.textContent='Click the map to place '+pt.label;
-        else hint.textContent='';
+    // ── Add a location (with its own map card) ──
+    function addLocation(presetName) {
+      if (locations.length >= 3) {
+        alert('You can add up to 3 locations per request.');
+        return;
       }
+      const id = 'loc-' + (locCounter++);
+      const loc = { id, name: presetName || '', map: null, pins: [], markers: [], mapReady: false };
+      locations.push(loc);
+      polyState[id] = { points: [], tempMarkers: [], tempLine: null };
+      renderLocationCards();
+      if (presetName) loadLocationMap(id);
+      updateAddLocationBtn();
     }
 
-    function addCustomPin() {
-      const input=document.getElementById('custom-pin-input'), label=input.value.trim(); if(!label)return;
-      const colors=['#C0392B','#1ABC9C','#8E44AD','#2980B9','#D35400'];
-      customPins.push({ id:'custom-'+Date.now(), label, emoji:'📍', color:colors[customPins.length%colors.length], shape:'marker' });
-      input.value=''; activePinType=customPins[customPins.length-1].id; buildToolbar();
+    function removeLocation(locId) {
+      const loc = locations.find(l => l.id === locId);
+      if (loc && loc.map) { loc.map.remove(); }
+      locations = locations.filter(l => l.id !== locId);
+      delete polyState[locId];
+      renderLocationCards();
+      updateAddLocationBtn();
     }
 
-    function loadMap() {
-      const loc=document.getElementById('event-location').value;
-      const ph=document.getElementById('map-placeholder'), mc=document.getElementById('map-container'), mt=document.getElementById('map-tools');
-      if(!loc||!VENUE_COORDS[loc]){ ph.style.display='flex'; mc.style.display='none'; mt.style.display='none'; return; }
-      ph.style.display='none'; mc.style.display='block'; mt.style.display='block';
-      const v=VENUE_COORDS[loc];
-      if(map){ map.remove(); map=null; } pins=[]; markers=[]; clearPolyTemp();
-      setTimeout(function(){
-        map=L.map('map-container',{ zoomSnap:0.5, attributionControl:false });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{
-          maxZoom:21
-        }).addTo(map);
-        map.setView([v.lat, v.lng], v.zoom);
-        map.invalidateSize();
-        map.on('click',function(e){ handleMapClick(e); });
-        buildToolbar(); renderPinList();
+    function updateAddLocationBtn() {
+      const btn = document.getElementById('add-location-btn');
+      if (btn) btn.style.display = locations.length >= 3 ? 'none' : 'inline-flex';
+    }
+
+    // ── Render all location cards ──
+    function renderLocationCards() {
+      const container = document.getElementById('locations-container');
+      if (!container) return;
+      container.innerHTML = '';
+      locations.forEach((loc, idx) => {
+        const card = document.createElement('div');
+        card.className = 'location-card';
+        card.id = 'card-' + loc.id;
+        card.innerHTML =
+          '<div class="location-card-head">' +
+            '<span class="location-num">Location ' + (idx + 1) + '</span>' +
+            (locations.length > 1 ? '<button type="button" class="loc-remove-btn" onclick="removeLocation(\'' + loc.id + '\')">Remove</button>' : '') +
+          '</div>' +
+          '<div class="field-group" style="margin-bottom:10px;">' +
+            '<label class="field-label">Location <span class="req-tag">required</span></label>' +
+            '<select onchange="onLocationSelect(\'' + loc.id + '\', this.value)">' +
+              '<option value="">Select a location...</option>' +
+              LOCATION_OPTIONS_JS +
+            '</select>' +
+          '</div>' +
+          '<div id="mapwrap-' + loc.id + '"></div>';
+        container.appendChild(card);
+        // Set the select value if location already chosen
+        if (loc.name) {
+          const sel = card.querySelector('select');
+          sel.value = loc.name;
+        }
+        // If a location is chosen, render its map area
+        if (loc.name) renderMapArea(loc.id);
+      });
+    }
+
+    function onLocationSelect(locId, name) {
+      const loc = locations.find(l => l.id === locId);
+      if (!loc) return;
+      loc.name = name;
+      // reset pins if location changed
+      loc.pins = []; loc.markers = [];
+      if (loc.map) { loc.map.remove(); loc.map = null; loc.mapReady = false; }
+      if (name) { renderMapArea(locId); loadLocationMap(locId); }
+      else { const w = document.getElementById('mapwrap-' + locId); if (w) w.innerHTML = ''; }
+    }
+
+    function renderMapArea(locId) {
+      const wrap = document.getElementById('mapwrap-' + locId);
+      if (!wrap) return;
+      wrap.innerHTML =
+        '<div id="map-' + locId + '" class="loc-map"></div>' +
+        '<div class="pin-toolbar" id="toolbar-' + locId + '"></div>' +
+        '<div id="hint-' + locId + '" class="pin-hint"></div>' +
+        '<div class="custom-pin-row">' +
+          '<input type="text" id="custom-input-' + locId + '" placeholder="Custom resource label (e.g. DJ Booth)">' +
+          '<button type="button" onclick="addCustomPin(\'' + locId + '\')">+ Add</button>' +
+        '</div>' +
+        '<div class="map-actions">' +
+          '<button type="button" class="btn-undo" onclick="undoPin(\'' + locId + '\')">\u21a9 Undo</button>' +
+          '<button type="button" id="finish-' + locId + '" onclick="finishPolygon(\'' + locId + '\')" style="display:none;background:#E57200;color:#fff;border:none;font-weight:600;">Finish shape</button>' +
+          '<button type="button" class="btn-clear" onclick="clearPins(\'' + locId + '\')">Clear all</button>' +
+          '<span style="flex:1;"></span>' +
+          '<span id="counter-' + locId + '" style="font-size:12px;color:#888780;"></span>' +
+        '</div>' +
+        '<div class="pin-list" id="pinlist-' + locId + '"></div>';
+    }
+
+    // ── Load the Leaflet map for a location ──
+    function loadLocationMap(locId) {
+      const loc = locations.find(l => l.id === locId);
+      if (!loc || !loc.name || !VENUE_COORDS[loc.name]) return;
+      const v = VENUE_COORDS[loc.name];
+      setTimeout(function() {
+        const el = document.getElementById('map-' + locId);
+        if (!el) return;
+        if (loc.map) { loc.map.remove(); loc.map = null; }
+        loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', { maxZoom: 21 }).addTo(loc.map);
+        loc.map.setView([v.lat, v.lng], v.zoom);
+        loc.map.invalidateSize();
+        loc.mapReady = true;
+        loc.map.on('click', function(e) { handleMapClick(locId, e); });
+        buildToolbar(locId);
+        renderPinList(locId);
       }, 100);
     }
 
-        let polyPoints = [];
-    let polyTempMarkers = [];
-    let polyTempLine = null;
-
-    function handleMapClick(e) {
-      if(!activePinType) return;
-      const pt=getActiveType();
-      if(!pt) return;
-      if(pt.shape==='rect') {
-        // Polygon mode: click corners, double-click to finish
-        polyPoints.push(e.latlng);
-        // Temp corner marker
-        const dot=L.circleMarker(e.latlng,{radius:4,color:'#fff',fillColor:pt.color,fillOpacity:1,weight:2}).addTo(map);
-        polyTempMarkers.push(dot);
-        // Draw preview line
-        if(polyTempLine){map.removeLayer(polyTempLine);}
-        if(polyPoints.length>1){
-          polyTempLine=L.polyline(polyPoints,{color:pt.color,weight:2,dashArray:'6,3'}).addTo(map);
-        }
-        buildToolbar();
-      } else {
-        placePin(pt, e.latlng);
+    // ── Toolbar (per location) ──
+    function buildToolbar(locId) {
+      const tb = document.getElementById('toolbar-' + locId);
+      if (!tb) return;
+      const loc = locations.find(l => l.id === locId);
+      tb.innerHTML = '';
+      [...PIN_TYPES, ...customPins].forEach(pt => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pin-btn' + (activePinType === pt.id ? ' active' : '');
+        const count = loc.pins.filter(p => p.typeId === pt.id).length;
+        const shapeHint = pt.shape === 'rect' ? ' \u25ad' : '';
+        btn.innerHTML = '<span class="pin-dot" style="background:' + pt.color + '"></span>' + pt.label + shapeHint + (count ? '<span class="pin-count">' + count + '</span>' : '');
+        btn.onclick = () => {
+          activePinType = activePinType === pt.id ? null : pt.id;
+          clearPolyTemp(locId);
+          // rebuild all toolbars so active state is consistent across maps
+          locations.forEach(l => { if (l.mapReady) buildToolbar(l.id); });
+          locations.forEach(l => { if (l.map) l.map.getContainer().style.cursor = activePinType ? 'crosshair' : ''; });
+        };
+        tb.appendChild(btn);
+      });
+      const fb = document.getElementById('finish-' + locId);
+      if (fb) { const apt = getActiveType(); fb.style.display = (apt && apt.shape === 'rect' && polyState[locId].points.length >= 3) ? 'inline-block' : 'none'; }
+      const c = document.getElementById('counter-' + locId);
+      if (c) c.textContent = loc.pins.length ? loc.pins.length + ' resource' + (loc.pins.length !== 1 ? 's' : '') + ' placed' : '';
+      const hint = document.getElementById('hint-' + locId);
+      if (hint) {
+        const pt = getActiveType();
+        const pts = polyState[locId].points.length;
+        if (pt && pt.shape === 'rect' && pts === 0) hint.textContent = 'Click corners to trace the ' + pt.label + ' area. Click "Finish shape" when done.';
+        else if (pt && pt.shape === 'rect' && pts > 0) hint.textContent = pts + ' corner' + (pts !== 1 ? 's' : '') + ' placed. ' + (pts < 3 ? 'Keep clicking corners.' : 'Click "Finish shape" or add more corners.');
+        else if (pt) hint.textContent = 'Click the map to place ' + pt.label;
+        else hint.textContent = '';
       }
     }
 
-    function finishPolygon() {
-      const pt=getActiveType();
-      if(!pt||polyPoints.length<3) return;
-      placeArea(pt, [...polyPoints]);
-      clearPolyTemp();
-      buildToolbar();
+    function addCustomPin(locId) {
+      const input = document.getElementById('custom-input-' + locId);
+      const label = input.value.trim();
+      if (!label) return;
+      const colors = ['#C0392B','#1ABC9C','#8E44AD','#2980B9','#D35400'];
+      customPins.push({ id: 'custom-' + Date.now(), label, emoji: '\U0001F4CD', color: colors[customPins.length % colors.length], shape: 'marker' });
+      input.value = '';
+      activePinType = customPins[customPins.length - 1].id;
+      locations.forEach(l => { if (l.mapReady) buildToolbar(l.id); });
     }
 
-    function clearPolyTemp() {
-      polyPoints=[];
-      polyTempMarkers.forEach(m=>map.removeLayer(m));
-      polyTempMarkers=[];
-      if(polyTempLine){map.removeLayer(polyTempLine);polyTempLine=null;}
+    // ── Map click ──
+    function handleMapClick(locId, e) {
+      if (!activePinType) return;
+      const pt = getActiveType();
+      if (!pt) return;
+      const loc = locations.find(l => l.id === locId);
+      const ps = polyState[locId];
+      if (pt.shape === 'rect') {
+        ps.points.push(e.latlng);
+        const dot = L.circleMarker(e.latlng, { radius: 4, color: '#fff', fillColor: pt.color, fillOpacity: 1, weight: 2 }).addTo(loc.map);
+        ps.tempMarkers.push(dot);
+        if (ps.tempLine) loc.map.removeLayer(ps.tempLine);
+        if (ps.points.length > 1) ps.tempLine = L.polyline(ps.points, { color: pt.color, weight: 2, dashArray: '6,3' }).addTo(loc.map);
+        buildToolbar(locId);
+      } else {
+        placePin(locId, pt, e.latlng);
+      }
     }
 
-    function placeArea(pt, points) {
-      const pin={id:Date.now(),typeId:pt.id,label:pt.label,emoji:pt.emoji,color:pt.color,points:points,note:'',isRect:true};
-      pins.push(pin);
-      const poly=L.polygon(points,{
-        color:pt.color,weight:2,fillColor:pt.color,fillOpacity:0.25,dashArray:'6,3',
-      }).addTo(map);
-      const center=poly.getBounds().getCenter();
-      const labelMarker=L.marker(center,{
-        icon:L.divIcon({className:'',html:'<div style="background:'+pt.color+';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">'+pt.emoji+' '+pt.label+'</div>',iconAnchor:[0,0]}),
-        interactive:false,
-      }).addTo(map);
-      poly.on('click',function(){
-        L.popup().setLatLng(center).setContent(makePopup(pin,pt)).openOn(map);
-      });
-      poly._pinId=pin.id;
-      poly._labelMarker=labelMarker;
-      markers.push(poly);
-      buildToolbar(); renderPinList();
+    function finishPolygon(locId) {
+      const pt = getActiveType();
+      const ps = polyState[locId];
+      if (!pt || ps.points.length < 3) return;
+      placeArea(locId, pt, [...ps.points]);
+      clearPolyTemp(locId);
+      buildToolbar(locId);
     }
 
-    function placePin(pt, latlng) {
-      const pin={id:Date.now(),typeId:pt.id,label:pt.label,emoji:pt.emoji,color:pt.color,latlng:latlng,note:'',isRect:false};
-      pins.push(pin);
-      const icon=L.divIcon({className:'',html:'<div style="background:'+pt.color+';width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;cursor:grab;">'+pt.emoji+'</div>',iconSize:[28,28],iconAnchor:[14,14]});
-      const marker=L.marker(latlng,{icon,draggable:true}).addTo(map);
-      marker.bindPopup(function(){ return makePopup(pin, pt); });
+    function clearPolyTemp(locId) {
+      const loc = locations.find(l => l.id === locId);
+      const ps = polyState[locId];
+      if (!ps) return;
+      ps.points = [];
+      if (loc && loc.map) ps.tempMarkers.forEach(m => loc.map.removeLayer(m));
+      ps.tempMarkers = [];
+      if (ps.tempLine && loc && loc.map) { loc.map.removeLayer(ps.tempLine); }
+      ps.tempLine = null;
+    }
+
+    function placeArea(locId, pt, points) {
+      const loc = locations.find(l => l.id === locId);
+      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, points: points, note: '', isRect: true };
+      loc.pins.push(pin);
+      const poly = L.polygon(points, { color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25, dashArray: '6,3' }).addTo(loc.map);
+      const center = poly.getBounds().getCenter();
+      const labelMarker = L.marker(center, { icon: L.divIcon({ className: '', html: '<div style="background:' + pt.color + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">' + pt.emoji + ' ' + pt.label + '</div>', iconAnchor: [0, 0] }), interactive: false }).addTo(loc.map);
+      poly.on('click', function() { L.popup().setLatLng(center).setContent(makePopup(locId, pin, pt)).openOn(loc.map); });
+      poly._pinId = pin.id; poly._labelMarker = labelMarker;
+      loc.markers.push(poly);
+      buildToolbar(locId); renderPinList(locId);
+    }
+
+    function placePin(locId, pt, latlng) {
+      const loc = locations.find(l => l.id === locId);
+      const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, latlng: latlng, note: '', isRect: false };
+      loc.pins.push(pin);
+      const icon = L.divIcon({ className: '', html: '<div style="background:' + pt.color + ';width:28px;height:28px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);font-size:14px;cursor:grab;">' + pt.emoji + '</div>', iconSize: [28, 28], iconAnchor: [14, 14] });
+      const marker = L.marker(latlng, { icon, draggable: true }).addTo(loc.map);
+      marker.bindPopup(function() { return makePopup(locId, pin, pt); });
       marker.openPopup();
-      marker._pinId=pin.id; markers.push(marker);
-      marker.on('dragend',function(){pin.latlng=marker.getLatLng();});
-      buildToolbar(); renderPinList();
+      marker._pinId = pin.id;
+      loc.markers.push(marker);
+      marker.on('dragend', function() { pin.latlng = marker.getLatLng(); });
+      buildToolbar(locId); renderPinList(locId);
     }
 
-    function makePopup(pin, pt) {
-      const div=document.createElement('div'); div.style.minWidth='180px';
-      div.innerHTML='<div style="font-weight:600;font-size:13px;margin-bottom:6px;">'+pt.emoji+' '+pt.label+'</div><input type="text" id="note-'+pin.id+'" value="'+(pin.note||'')+'" placeholder="Add a note (e.g. 40x60 tent)" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;"><div style="display:flex;gap:6px;"><button onclick="saveNote('+pin.id+')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button onclick="removePin('+pin.id+')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
+    function makePopup(locId, pin, pt) {
+      const div = document.createElement('div');
+      div.style.minWidth = '180px';
+      div.innerHTML = '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">' + pt.emoji + ' ' + pt.label + '</div><input type="text" id="note-' + pin.id + '" value="' + (pin.note || '') + '" placeholder="Add a note" style="width:100%;font-size:13px;padding:4px 8px;border:1px solid #ccc;border-radius:6px;margin-bottom:6px;"><div style="display:flex;gap:6px;"><button type="button" onclick="saveNote(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#232D4B;color:#fff;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Save</button><button type="button" onclick="removePin(\'' + locId + '\',' + pin.id + ')" style="flex:1;background:#fdecea;color:#c0392b;border:none;border-radius:6px;padding:5px;font-size:12px;cursor:pointer;">Remove</button></div>';
       return div;
     }
 
-    function saveNote(id){ const i=document.getElementById('note-'+id),p=pins.find(x=>x.id===id); if(p&&i)p.note=i.value.trim(); map.closePopup(); renderPinList(); }
-    function removePin(id){
-      pins=pins.filter(p=>p.id!==id);
-      const m=markers.find(x=>x._pinId===id);
-      if(m){
-        map.removeLayer(m);
-        if(m._labelMarker) map.removeLayer(m._labelMarker);
-        markers=markers.filter(x=>x!==m);
+    function saveNote(locId, id) {
+      const loc = locations.find(l => l.id === locId);
+      const i = document.getElementById('note-' + id), p = loc.pins.find(x => x.id === id);
+      if (p && i) p.note = i.value.trim();
+      loc.map.closePopup();
+      renderPinList(locId);
+    }
+
+    function removePin(locId, id) {
+      const loc = locations.find(l => l.id === locId);
+      loc.pins = loc.pins.filter(p => p.id !== id);
+      const m = loc.markers.find(x => x._pinId === id);
+      if (m) { loc.map.removeLayer(m); if (m._labelMarker) loc.map.removeLayer(m._labelMarker); loc.markers = loc.markers.filter(x => x !== m); }
+      loc.map.closePopup();
+      buildToolbar(locId); renderPinList(locId);
+    }
+
+    function undoPin(locId) {
+      const ps = polyState[locId];
+      const loc = locations.find(l => l.id === locId);
+      if (ps.points.length > 0) {
+        ps.points.pop();
+        const m = ps.tempMarkers.pop();
+        if (m) loc.map.removeLayer(m);
+        if (ps.tempLine) { loc.map.removeLayer(ps.tempLine); ps.tempLine = null; }
+        if (ps.points.length > 1) ps.tempLine = L.polyline(ps.points, { color: getActiveType().color, weight: 2, dashArray: '6,3' }).addTo(loc.map);
+        buildToolbar(locId);
+      } else if (loc.pins.length) {
+        removePin(locId, loc.pins[loc.pins.length - 1].id);
       }
-      map.closePopup(); buildToolbar(); renderPinList();
-    }
-    function undoPin(){ if(polyPoints.length>0){polyPoints.pop();const m=polyTempMarkers.pop();if(m)map.removeLayer(m);if(polyTempLine){map.removeLayer(polyTempLine);polyTempLine=null;}if(polyPoints.length>1)polyTempLine=L.polyline(polyPoints,{color:getActiveType().color,weight:2,dashArray:'6,3'}).addTo(map);buildToolbar();} else if(pins.length)removePin(pins[pins.length-1].id); }
-    function clearPins(){ markers.forEach(m=>{map.removeLayer(m);if(m._labelMarker)map.removeLayer(m._labelMarker);}); pins=[];markers=[]; clearPolyTemp(); buildToolbar(); renderPinList(); }
-
-    function renderPinList() {
-      const c=document.getElementById('pin-list'); if(!c)return;
-      if(!pins.length){ c.innerHTML='<div class="pin-list-title">Placed resources</div><div style="font-size:13px;color:#888780;">No resources placed yet. Select a type and click the map.</div>'; return; }
-      c.innerHTML='<div class="pin-list-title">Placed resources ('+pins.length+')</div>'+
-        pins.map(p=>'<div class="pin-list-item"><div class="pin-list-dot" style="background:'+p.color+'"></div><span class="pin-list-name">'+p.label+(p.isRect?' (area)':'')+'</span>'+(p.note?'<span class="pin-list-note"> — '+p.note+'</span>':'')+'<span class="pin-list-remove" onclick="removePin('+p.id+')">×</span></div>').join('');
     }
 
+    function clearPins(locId) {
+      const loc = locations.find(l => l.id === locId);
+      loc.markers.forEach(m => { loc.map.removeLayer(m); if (m._labelMarker) loc.map.removeLayer(m._labelMarker); });
+      loc.pins = []; loc.markers = [];
+      clearPolyTemp(locId);
+      buildToolbar(locId); renderPinList(locId);
+    }
+
+    function renderPinList(locId) {
+      const loc = locations.find(l => l.id === locId);
+      const c = document.getElementById('pinlist-' + locId);
+      if (!c) return;
+      if (!loc.pins.length) { c.innerHTML = '<div class="pin-list-title">Placed resources</div><div style="font-size:13px;color:#888780;">No resources placed yet. Select a type and click the map.</div>'; return; }
+      c.innerHTML = '<div class="pin-list-title">Placed resources (' + loc.pins.length + ')</div>' +
+        loc.pins.map(p => '<div class="pin-list-item"><div class="pin-list-dot" style="background:' + p.color + '"></div><span class="pin-list-name">' + p.label + (p.isRect ? ' (area)' : '') + '</span>' + (p.note ? '<span class="pin-list-note"> \u2014 ' + p.note + '</span>' : '') + '<span class="pin-list-remove" onclick="removePin(\'' + locId + '\',' + p.id + ')">\u00d7</span></div>').join('');
+    }
+
+    // ── Submit ──
     async function submitForm() {
-      const req=['org-name','org-email','event-location']; let err=null;
-      req.forEach(id=>{ const el=document.getElementById(id); if(!el.value.trim()){el.classList.add('error');if(!err)err=el;}else el.classList.remove('error'); });
-      if(err){ err.focus(); err.scrollIntoView({behavior:'smooth',block:'center'}); return; }
-      let mapShot='';
-      if(map&&pins.length){ try{ const canvas=await html2canvas(document.getElementById('map-container'),{useCORS:true,scale:2}); mapShot=canvas.toDataURL('image/png'); }catch(e){} }
-      let fileData='',fileName=''; const fi=document.getElementById('confirmation-file');
-      if(fi.files.length){ fileName=fi.files[0].name; fileData=await new Promise(r=>{const x=new FileReader();x.onload=()=>r(x.result);x.readAsDataURL(fi.files[0]);}); }
-      const payload={
-        organizerName:document.getElementById('org-name').value.trim(),
-        email:document.getElementById('org-email').value.trim(),
-        location:document.getElementById('event-location').value,
-        confirmationText:document.getElementById('confirmation-text').value.trim(),
-        confirmationFile:fileName, confirmationData:fileData,
-        powerNotes:document.getElementById('power-notes').value.trim(),
-        fmNotes:document.getElementById('fm-notes').value.trim(),
-        pinData:pins.map(p=>p.label+(p.note?' ('+p.note+')':'')).join(', ')||'None',
-        mapScreenshot:mapShot,
-        submittedAt:new Date().toLocaleString('en-US',{timeZone:'America/New_York'}),
-        reviewLink:getReviewLink(),
+      const required = ['org-name','org-email'];
+      let firstError = null;
+      required.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el.value.trim()) { el.classList.add('error'); if (!firstError) firstError = el; }
+        else el.classList.remove('error');
+      });
+      // Need at least one location with a name
+      const validLocs = locations.filter(l => l.name);
+      if (!validLocs.length) {
+        alert('Please add at least one location.');
+        if (!firstError) { const b = document.getElementById('add-location-btn'); if (b) b.scrollIntoView({behavior:'smooth',block:'center'}); }
+        return;
+      }
+      if (firstError) { firstError.focus(); firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+
+      // Capture a screenshot per location
+      const locationData = [];
+      for (const loc of validLocs) {
+        let shot = '';
+        if (loc.map && loc.pins.length) {
+          try { const canvas = await html2canvas(document.getElementById('map-' + loc.id), { useCORS: true, scale: 2 }); shot = canvas.toDataURL('image/png'); } catch(e) {}
+        }
+        locationData.push({
+          name: loc.name,
+          pins: loc.pins.map(p => p.label + (p.note ? ' (' + p.note + ')' : '')).join(', ') || 'None',
+          screenshot: shot
+        });
+      }
+
+      // File to base64
+      let fileData = '', fileName = '';
+      const fi = document.getElementById('confirmation-file');
+      if (fi && fi.files.length) { fileName = fi.files[0].name; fileData = await new Promise(r => { const x = new FileReader(); x.onload = () => r(x.result); x.readAsDataURL(fi.files[0]); }); }
+
+      const payload = {
+        organizerName: document.getElementById('org-name').value.trim(),
+        email: document.getElementById('org-email').value.trim(),
+        locations: locationData.map(l => l.name).join('; '),
+        locationCount: locationData.length,
+        locationDetails: locationData.map((l,i) => 'Location ' + (i+1) + ' — ' + l.name + ': ' + l.pins).join(' || '),
+        confirmationText: document.getElementById('confirmation-text') ? document.getElementById('confirmation-text').value.trim() : '',
+        confirmationFile: fileName, confirmationData: fileData,
+        powerNotes: document.getElementById('power-notes') ? document.getElementById('power-notes').value.trim() : '',
+        fmNotes: document.getElementById('fm-notes') ? document.getElementById('fm-notes').value.trim() : '',
+        mapScreenshots: locationData.map(l => l.screenshot),
+        submittedAt: new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }),
+        reviewLink: getReviewLink(),
       };
-      document.querySelector('.btn-submit').disabled=true;
-      document.getElementById('error-banner').style.display='none';
+
+      const btn = document.querySelector('.btn-submit');
+      if (btn) btn.disabled = true;
+      const eb = document.getElementById('error-banner'); if (eb) eb.style.display = 'none';
       try {
-        const res=await fetch(POWER_AUTOMATE_URL,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-        if(!res.ok)throw new Error();
-        document.getElementById('success-msg').style.display='block';
-        document.getElementById('success-msg').scrollIntoView({behavior:'smooth'});
-      } catch{ document.getElementById('error-banner').style.display='block'; }
-      finally{ document.querySelector('.btn-submit').disabled=false; }
+        const res = await fetch(POWER_AUTOMATE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error();
+        const sm = document.getElementById('success-msg'); if (sm) { sm.style.display = 'block'; sm.scrollIntoView({ behavior: 'smooth' }); }
+      } catch { if (eb) eb.style.display = 'block'; }
+      finally { if (btn) btn.disabled = false; }
     }
+
     function resetForm() {
-      document.querySelectorAll('input:not([type=file]),select,textarea').forEach(el=>{el.value='';el.classList.remove('error');});
-      document.getElementById('confirmation-file').value='';
-      document.getElementById('map-placeholder').style.display='flex';
-      document.getElementById('map-container').style.display='none';
-      document.getElementById('map-tools').style.display='none';
-      if(map){map.remove();map=null;} pins=[];markers=[];customPins=[];
-      document.getElementById('success-msg').style.display='none';
-      document.getElementById('error-banner').style.display='none';
+      document.querySelectorAll('input:not([type=file]),select,textarea').forEach(el => { el.value = ''; el.classList.remove('error'); });
+      const cf = document.getElementById('confirmation-file'); if (cf) cf.value = '';
+      locations.forEach(l => { if (l.map) l.map.remove(); });
+      locations = []; customPins = []; polyState = {}; locCounter = 0; activePinType = null;
+      addLocation();
+      const sm = document.getElementById('success-msg'); if (sm) sm.style.display = 'none';
+      const eb = document.getElementById('error-banner'); if (eb) eb.style.display = 'none';
     }
-    document.querySelectorAll('input,select,textarea').forEach(el=>el.addEventListener('input',()=>el.classList.remove('error')));
 
-    // ── FM Review Mode ──
-    const FM_PIN = { id:'fm-suggestion', label:'FM Suggestion', emoji:'🚩', color:'#C0392B', shape:'marker' };
-
+    // ── Review link (encodes all locations) ──
     function getReviewLink() {
-      // Encode current pins + location into a URL hash
       const data = {
-        loc: document.getElementById('event-location').value,
         org: document.getElementById('org-name').value,
         email: document.getElementById('org-email').value,
-        pins: pins.map(p => ({
-          typeId:p.typeId, label:p.label, emoji:p.emoji, color:p.color,
-          isRect:p.isRect,
-          latlng: p.isRect ? null : (p.latlng ? {lat:p.latlng.lat,lng:p.latlng.lng} : null),
-          points: p.isRect && p.points ? p.points.map(ll=>({lat:ll.lat,lng:ll.lng})) : null,
-          note:p.note
+        locations: locations.filter(l => l.name).map(loc => ({
+          name: loc.name,
+          pins: loc.pins.map(p => ({
+            typeId: p.typeId, label: p.label, emoji: p.emoji, color: p.color, isRect: p.isRect,
+            latlng: p.isRect ? null : (p.latlng ? { lat: p.latlng.lat, lng: p.latlng.lng } : null),
+            points: p.isRect && p.points ? p.points.map(ll => ({ lat: ll.lat, lng: ll.lng })) : null,
+            note: p.note
+          }))
         }))
       };
       return window.location.origin + window.location.pathname + '#review=' + encodeURIComponent(JSON.stringify(data));
@@ -402,71 +568,56 @@
 
     function loadFromURL() {
       const hash = window.location.hash;
-      if (!hash.startsWith('#review=')) return;
+      if (!hash.startsWith('#review=')) { addLocation(); return; }
       try {
         const data = JSON.parse(decodeURIComponent(hash.slice(8)));
-        // Show FM banner
-        document.getElementById('fm-banner').classList.add('show');
-        // Set organizer info
-        if(data.org) document.getElementById('org-name').value = data.org;
-        if(data.email) document.getElementById('org-email').value = data.email;
-        // Set location and load map
-        if(data.loc) {
-          document.getElementById('event-location').value = data.loc;
-          loadMap();
-          // Wait for map to init, then place pins
-          setTimeout(function(){
-            if(data.pins) {
-              data.pins.forEach(p => {
-                const pt = {id:p.typeId, label:p.label, emoji:p.emoji, color:p.color, shape:p.isRect?'rect':'marker'};
-                if(p.isRect && p.points) {
-                  const latlngs = p.points.map(ll=>L.latLng(ll.lat,ll.lng));
-                  placeArea(pt, latlngs);
-                  if(p.note) { pins[pins.length-1].note = p.note; }
-                } else if(p.latlng) {
-                  placePin(pt, L.latLng(p.latlng.lat, p.latlng.lng));
-                  if(p.note) { pins[pins.length-1].note = p.note; saveNote(pins[pins.length-1].id); }
-                }
-              });
-              renderPinList();
-              // Add FM suggestion pin type to toolbar
-              if(!PIN_TYPES.find(x=>x.id==='fm-suggestion')) PIN_TYPES.push(FM_PIN);
-              buildToolbar();
-            }
-          }, 500);
-        }
-      } catch(e) { console.warn('Failed to load review data:', e); }
+        const fmb = document.getElementById('fm-banner'); if (fmb) fmb.classList.add('show');
+        if (data.org && document.getElementById('org-name')) document.getElementById('org-name').value = data.org;
+        if (data.email && document.getElementById('org-email')) document.getElementById('org-email').value = data.email;
+        if (!PIN_TYPES.find(x => x.id === 'fm-suggestion')) PIN_TYPES.push({ id:'fm-suggestion', label:'FM Suggestion', emoji:'\U0001F6A9', color:'#C0392B', shape:'marker' });
+        (data.locations || []).forEach(locData => {
+          addLocation(locData.name);
+        });
+        // After maps init, place pins
+        setTimeout(function() {
+          (data.locations || []).forEach((locData, i) => {
+            const loc = locations[i];
+            if (!loc || !loc.map) return;
+            (locData.pins || []).forEach(p => {
+              const pt = { id: p.typeId, label: p.label, emoji: p.emoji, color: p.color, shape: p.isRect ? 'rect' : 'marker' };
+              if (p.isRect && p.points) { placeArea(loc.id, pt, p.points.map(ll => L.latLng(ll.lat, ll.lng))); if (p.note) loc.pins[loc.pins.length-1].note = p.note; }
+              else if (p.latlng) { placePin(loc.id, pt, L.latLng(p.latlng.lat, p.latlng.lng)); if (p.note) { loc.pins[loc.pins.length-1].note = p.note; } }
+            });
+            renderPinList(loc.id);
+            buildToolbar(loc.id);
+          });
+        }, 800);
+      } catch(e) { console.warn('Review load failed:', e); addLocation(); }
     }
 
     async function sendBackToOrganizer() {
       const email = document.getElementById('org-email').value;
-      const loc = document.getElementById('event-location').value;
-      if(!email) { alert('No organizer email found.'); return; }
-      // Capture screenshot
-      let mapShot = '';
-      if(map && pins.length) {
-        try {
-          const canvas = await html2canvas(document.getElementById('map-container'),{useCORS:true,scale:2});
-          mapShot = canvas.toDataURL('image/png');
-          // Open image in new tab so FM can save/copy it
-          const w = window.open('');
-          w.document.write('<html><head><title>Layout with FM edits</title></head><body style="margin:0;background:#f3f1ec;padding:20px;font-family:sans-serif;">');
-          w.document.write('<h2 style="color:#232D4B;">Event Layout with FM Edits</h2>');
-          w.document.write('<p style="color:#5a5957;">Location: '+loc+'</p>');
-          w.document.write('<p style="color:#5a5957;">Right-click the image below to save, then attach to your email reply.</p>');
-          w.document.write('<img src="'+mapShot+'" style="max-width:100%;border:1px solid #ddd;border-radius:8px;">');
-          w.document.write('<p style="margin-top:12px;font-size:13px;color:#888;">FM suggestions shown in red.</p>');
-          w.document.write('</body></html>');
-          w.document.close();
-        } catch(e) { console.warn('Screenshot failed:', e); }
+      if (!email) { alert('No organizer email found.'); return; }
+      const w = window.open('');
+      w.document.write('<html><head><title>Layout with FM edits</title></' + 'head><body style="margin:0;background:#f3f1ec;padding:20px;font-family:sans-serif;">');
+      w.document.write('<h2 style="color:#232D4B;">Event Layout with FM Edits</h2>');
+      for (const loc of locations.filter(l => l.name)) {
+        let shot = '';
+        if (loc.map && loc.pins.length) { try { const canvas = await html2canvas(document.getElementById('map-' + loc.id), { useCORS: true, scale: 2 }); shot = canvas.toDataURL('image/png'); } catch(e) {} }
+        w.document.write('<p style="color:#5a5957;font-weight:600;">' + loc.name + '</p>');
+        if (shot) w.document.write('<img src="' + shot + '" style="max-width:100%;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;">');
       }
-      // Also open mailto
-      const subject = encodeURIComponent('[CGZ Layout Update] ' + loc);
-      const body = encodeURIComponent('Hi,\n\nFM has reviewed your event layout for ' + loc + ' and made some suggestions. Please see the attached updated layout image.\n\nPlease review and let us know if you have questions.\n\nThanks,\nUriel An\nCentral Grounds Zone Event & Maintenance Coordinator\n(434) 906-0976');
+      w.document.write('<p style="font-size:13px;color:#888;">FM suggestions shown in red. Right-click each image to save, then attach to your reply.</p>');
+      w.document.write('</' + 'body></html>');
+      w.document.close();
+      const subject = encodeURIComponent('[CGZ Layout Update] ' + locations.filter(l=>l.name).map(l=>l.name).join(', '));
+      const body = encodeURIComponent('Hi,\n\nFM has reviewed your event layout and made some suggestions. Please see the attached updated layout image(s).\n\nThanks,\nUriel An\nCentral Grounds Zone Event & Maintenance Coordinator\n(434) 906-0976');
       window.open('mailto:' + email + '?subject=' + subject + '&body=' + body);
     }
 
-    // Load review data on page load
+    document.querySelectorAll('input, select, textarea').forEach(el => el.addEventListener('input', () => el.classList.remove('error')));
+
+    // LOCATION_OPTIONS injected as JS string
     loadFromURL();
 
   </script>
