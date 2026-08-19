@@ -540,7 +540,7 @@
         confirmationFile: fileName, confirmationData: fileData,
         powerNotes: document.getElementById('power-notes') ? document.getElementById('power-notes').value.trim() : '',
         fmNotes: document.getElementById('fm-notes') ? document.getElementById('fm-notes').value.trim() : '',
-        mapScreenshots: locationData.map(l => l.screenshot),
+        mapScreenshot: (locationData.find(l => l.screenshot) || {}).screenshot || '',
         submittedAt: new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }),
         reviewLink: getReviewLink(),
       };
