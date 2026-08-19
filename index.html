@@ -6,7 +6,6 @@
   <title>CGZ Event Layout Tool - UVA Facilities Management</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -297,16 +296,6 @@
         if (loc.map) { loc.map.remove(); loc.map = null; }
         loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', { maxZoom: 21, crossOrigin: true }).addTo(loc.map);
-        // UVA FM GIS building footprints (authoritative facility outlines) — matches the graduation form
-        if (typeof L.esri !== 'undefined') {
-          try {
-            L.esri.featureLayer({
-              url: 'https://fm-atlas.eservices.virginia.edu/server/rest/services/Public/PublicFacilitiesSearch/MapServer/0',
-              style: function(){ return { color:'#232D4B', weight:1.2, fillColor:'#8ea3c7', fillOpacity:0.18 }; },
-              interactive: false
-            }).addTo(loc.map);
-          } catch(err) { /* fall back to base tiles only */ }
-        }
         loc.map.setView([v.lat, v.lng], v.zoom);
         loc.map.invalidateSize();
         loc.mapReady = true;
@@ -519,15 +508,8 @@
           try {
             const mapEl = document.getElementById('map-' + loc.id);
             mapEl.scrollIntoView({ block: 'center' });
-            loc.map.invalidateSize();
-            await new Promise(r => setTimeout(r, 500));
-            const canvas = await html2canvas(mapEl, {
-              useCORS: true,
-              scale: 1,
-              backgroundColor: null,
-              scrollX: 0,
-              scrollY: -window.scrollY
-            });
+            await new Promise(r => setTimeout(r, 300));
+            const canvas = await html2canvas(mapEl, { useCORS: true, scale: 2, backgroundColor: null, scrollY: -window.scrollY });
             shot = canvas.toDataURL('image/png');
           } catch(e) { console.warn('Screenshot failed:', e); }
         }
