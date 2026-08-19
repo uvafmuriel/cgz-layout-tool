@@ -294,7 +294,7 @@
         const el = document.getElementById('map-' + locId);
         if (!el) return;
         if (loc.map) { loc.map.remove(); loc.map = null; }
-        loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false });
+        loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false, preferCanvas: true });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', { maxZoom: 21, crossOrigin: true }).addTo(loc.map);
         loc.map.setView([v.lat, v.lng], v.zoom);
         loc.map.invalidateSize();
@@ -396,7 +396,7 @@
       const loc = locations.find(l => l.id === locId);
       const pin = { id: Date.now(), typeId: pt.id, label: pt.label, emoji: pt.emoji, color: pt.color, points: points, note: '', qty: 1, isRect: true };
       loc.pins.push(pin);
-      const poly = L.polygon(points, { color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25, dashArray: '6,3' }).addTo(loc.map);
+      const poly = L.polygon(points, { renderer: L.canvas(), color: pt.color, weight: 2, fillColor: pt.color, fillOpacity: 0.25, dashArray: '6,3' }).addTo(loc.map);
       const center = poly.getBounds().getCenter();
       const labelMarker = L.marker(center, { icon: L.divIcon({ className: '', html: '<div style="background:' + pt.color + ';color:#fff;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">' + pt.emoji + ' ' + pt.label + '</div>', iconAnchor: [0, 0] }), interactive: false }).addTo(loc.map);
       poly.on('click', function() { L.popup().setLatLng(center).setContent(makePopup(locId, pin, pt)).openOn(loc.map); });
