@@ -516,7 +516,20 @@
       for (const loc of validLocs) {
         let shot = '';
         if (loc.map && loc.pins.length) {
-          try { const canvas = await html2canvas(document.getElementById('map-' + loc.id), { useCORS: true, allowTaint: false, scale: 2, backgroundColor: '#ffffff', logging: false }); shot = canvas.toDataURL('image/png'); } catch(e) { console.warn('Screenshot failed:', e); }
+          try {
+            const mapEl = document.getElementById('map-' + loc.id);
+            if (loc.map) { loc.map.invalidateSize(); }
+            await new Promise(r => setTimeout(r, 400)); // let Leaflet settle tiles/markers
+            const canvas = await html2canvas(mapEl, {
+              useCORS: true,
+              scale: 2,
+              backgroundColor: null,
+              scrollX: 0, scrollY: 0,
+              windowWidth: mapEl.scrollWidth,
+              windowHeight: mapEl.scrollHeight
+            });
+            shot = canvas.toDataURL('image/png');
+          } catch(e) { console.warn('Screenshot failed:', e); }
         }
         locationData.push({
           name: loc.name,
@@ -621,7 +634,20 @@
       w.document.write('<h2 style="color:#232D4B;">Event Layout with FM Edits</h2>');
       for (const loc of locations.filter(l => l.name)) {
         let shot = '';
-        if (loc.map && loc.pins.length) { try { const canvas = await html2canvas(document.getElementById('map-' + loc.id), { useCORS: true, allowTaint: false, scale: 2, backgroundColor: '#ffffff', logging: false }); shot = canvas.toDataURL('image/png'); } catch(e) { console.warn('Screenshot failed:', e); } }
+        if (loc.map && loc.pins.length) { try {
+            const mapEl = document.getElementById('map-' + loc.id);
+            if (loc.map) { loc.map.invalidateSize(); }
+            await new Promise(r => setTimeout(r, 400)); // let Leaflet settle tiles/markers
+            const canvas = await html2canvas(mapEl, {
+              useCORS: true,
+              scale: 2,
+              backgroundColor: null,
+              scrollX: 0, scrollY: 0,
+              windowWidth: mapEl.scrollWidth,
+              windowHeight: mapEl.scrollHeight
+            });
+            shot = canvas.toDataURL('image/png');
+          } catch(e) { console.warn('Screenshot failed:', e); } }
         w.document.write('<p style="color:#5a5957;font-weight:600;">' + loc.name + '</p>');
         if (shot) w.document.write('<img src="' + shot + '" style="max-width:100%;border:1px solid #ddd;border-radius:8px;margin-bottom:16px;">');
       }
