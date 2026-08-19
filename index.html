@@ -268,6 +268,20 @@
       const wrap = document.getElementById('mapwrap-' + locId);
       if (!wrap) return;
       wrap.innerHTML =
+        '<button type="button" onclick="toggleMapHelp(\'' + locId + '\')" style="display:inline-flex;align-items:center;gap:6px;background:#232D4B;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:10px;">' +
+          '<span style="font-size:16px;">&#9432;</span> How to use the map' +
+        '</button>' +
+        '<div id="maphelp-' + locId + '" style="display:none;background:#eef1f7;border:1px solid #cdd6e8;border-left:4px solid #232D4B;border-radius:8px;padding:16px 18px;margin-bottom:14px;font-size:13px;line-height:1.6;">' +
+          '<p style="font-weight:600;color:#232D4B;margin:0 0 8px;">Placing items on the map</p>' +
+          '<ol style="margin:0 0 10px;padding-left:20px;">' +
+            '<li><strong>Pick what you want to place</strong> \u2014 click a resource button (Tent, Stage, Chairs, etc.) above the map. It highlights to show it\'s selected.</li>' +
+            '<li><strong>Click on the map</strong> where that item should go. A marker drops at that spot.</li>' +
+            '<li><strong>For areas like tents or seating</strong>, click each corner to trace the shape. To close it, either <em>click the orange starting dot</em> or <em>double-click</em> \u2014 the shape completes automatically. (The <em>\"Finish shape\"</em> button still works too.)</li>' +
+            '<li><strong>Add a quantity or note</strong> \u2014 click any marker you placed to set how many (e.g. 200 chairs) or add a note.</li>' +
+            '<li><strong>Made a mistake?</strong> Use <em>Undo</em> to remove the last thing, or <em>Clear all</em> to start over.</li>' +
+          '</ol>' +
+          '<p style="margin:0;color:#5b6472;">You don\'t need to be precise \u2014 a rough placement helps FM understand your setup.</p>' +
+        '</div>' +
         '<div id="map-' + locId + '" class="loc-map"></div>' +
         '<div class="pin-toolbar" id="toolbar-' + locId + '"></div>' +
         '<div id="hint-' + locId + '" class="pin-hint"></div>' +
@@ -294,12 +308,17 @@
         const el = document.getElementById('map-' + locId);
         if (!el) return;
         if (loc.map) { loc.map.remove(); loc.map = null; }
-        loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false, preferCanvas: true });
+        loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false, preferCanvas: true, doubleClickZoom: false });
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', { maxZoom: 21, crossOrigin: true }).addTo(loc.map);
         loc.map.setView([v.lat, v.lng], v.zoom);
         loc.map.invalidateSize();
         loc.mapReady = true;
         loc.map.on('click', function(e) { handleMapClick(locId, e); });
+        loc.map.on('dblclick', function(e) {
+          const pt = getActiveType();
+          const ps = polyState[locId];
+          if (pt && pt.shape === 'rect' && ps && ps.points.length >= 3) { finishPolygon(locId); }
+        });
         buildToolbar(locId);
         renderPinList(locId);
       }, 100);
@@ -361,8 +380,19 @@
       const loc = locations.find(l => l.id === locId);
       const ps = polyState[locId];
       if (pt.shape === 'rect') {
+        // If we have 3+ points and the click is near the starting dot, close the shape
+        if (ps.points.length >= 3) {
+          const p1 = loc.map.latLngToContainerPoint(ps.points[0]);
+          const p2 = loc.map.latLngToContainerPoint(e.latlng);
+          const distPx = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+          const closeTol = ('ontouchstart' in window) ? 24 : 14;
+          if (distPx <= closeTol) { finishPolygon(locId); return; }
+        }
         ps.points.push(e.latlng);
-        const dot = L.circleMarker(e.latlng, { radius: 4, color: '#fff', fillColor: pt.color, fillOpacity: 1, weight: 2 }).addTo(loc.map);
+        // First dot is bigger/highlighted so users know they can click it to close
+        const isFirst = ps.points.length === 1;
+        const dot = L.circleMarker(e.latlng, { radius: isFirst ? 7 : 4, color: '#fff', fillColor: isFirst ? '#E57200' : pt.color, fillOpacity: 1, weight: isFirst ? 3 : 2 }).addTo(loc.map);
+        if (isFirst) { dot.bindTooltip('Click here to close the shape', { direction: 'top', offset: [0, -8] }); }
         ps.tempMarkers.push(dot);
         if (ps.tempLine) loc.map.removeLayer(ps.tempLine);
         if (ps.points.length > 1) ps.tempLine = L.polyline(ps.points, { color: pt.color, weight: 2, dashArray: '6,3' }).addTo(loc.map);
@@ -372,6 +402,11 @@
       }
     }
 
+    function toggleMapHelp(locId) {
+      const box = document.getElementById('maphelp-' + locId);
+      if (!box) return;
+      box.style.display = (box.style.display === 'none' || !box.style.display) ? 'block' : 'none';
+    }
     function finishPolygon(locId) {
       const pt = getActiveType();
       const ps = polyState[locId];
