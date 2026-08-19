@@ -517,7 +517,17 @@
         let shot = '';
         if (loc.map && loc.pins.length) {
           try {
-            const canvas = await html2canvas(document.getElementById('map-' + loc.id), { useCORS: true, scale: 2, backgroundColor: null });
+            const mapEl = document.getElementById('map-' + loc.id);
+            mapEl.scrollIntoView({ block: 'center' });
+            loc.map.invalidateSize();
+            await new Promise(r => setTimeout(r, 500));
+            const canvas = await html2canvas(mapEl, {
+              useCORS: true,
+              scale: 1,
+              backgroundColor: null,
+              scrollX: 0,
+              scrollY: -window.scrollY
+            });
             shot = canvas.toDataURL('image/png');
           } catch(e) { console.warn('Screenshot failed:', e); }
         }
