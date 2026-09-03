@@ -309,7 +309,7 @@
         if (!el) return;
         if (loc.map) { loc.map.remove(); loc.map = null; }
         loc.map = L.map('map-' + locId, { zoomSnap: 0.5, attributionControl: false, preferCanvas: true, doubleClickZoom: false });
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', { maxZoom: 21, crossOrigin: true }).addTo(loc.map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: true, attribution: '&copy; OpenStreetMap contributors'}).addTo(loc.map);
         loc.map.setView([v.lat, v.lng], v.zoom);
         loc.map.invalidateSize();
         loc.mapReady = true;
