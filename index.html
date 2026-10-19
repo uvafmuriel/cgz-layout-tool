@@ -619,6 +619,13 @@
       if (!hash.startsWith('#review=')) { addLocation(); return; }
       try {
         const data = JSON.parse(decodeURIComponent(hash.slice(8)));
+        // Auto-correct emoji codes from old links (invalid \\U escapes that got saved as literal text)
+        const EMOJI_FIX = { 'U0001F4CD': '\u{1F4CD}', 'U0001F6A9': '\u{1F6A9}' };
+        (data.locations || []).forEach(loc => (loc.pins || []).forEach(pin => {
+          if (pin.emoji && EMOJI_FIX[pin.emoji]) pin.emoji = EMOJI_FIX[pin.emoji];
+          // Also strip any stray 'U0001F...' that isn't a clean mapping -> fallback pushpin
+          else if (pin.emoji && /^U[0-9A-Fa-f]{4,}/.test(pin.emoji)) pin.emoji = '\u{1F4CD}';
+        }));
         const fmb = document.getElementById('fm-banner'); if (fmb) fmb.classList.add('show');
         if (data.org && document.getElementById('org-name')) document.getElementById('org-name').value = data.org;
         if (data.email && document.getElementById('org-email')) document.getElementById('org-email').value = data.email;
