@@ -366,7 +366,7 @@
       const label = input.value.trim();
       if (!label) return;
       const colors = ['#C0392B','#1ABC9C','#8E44AD','#2980B9','#D35400'];
-      customPins.push({ id: 'custom-' + Date.now(), label, emoji: '\U0001F4CD', color: colors[customPins.length % colors.length], shape: 'marker' });
+      customPins.push({ id: 'custom-' + Date.now(), label, emoji: '📍', color: colors[customPins.length % colors.length], shape: 'marker' });
       input.value = '';
       activePinType = customPins[customPins.length - 1].id;
       locations.forEach(l => { if (l.mapReady) buildToolbar(l.id); });
@@ -622,7 +622,7 @@
         const fmb = document.getElementById('fm-banner'); if (fmb) fmb.classList.add('show');
         if (data.org && document.getElementById('org-name')) document.getElementById('org-name').value = data.org;
         if (data.email && document.getElementById('org-email')) document.getElementById('org-email').value = data.email;
-        if (!PIN_TYPES.find(x => x.id === 'fm-suggestion')) PIN_TYPES.push({ id:'fm-suggestion', label:'FM Suggestion', emoji:'\U0001F6A9', color:'#C0392B', shape:'marker' });
+        if (!PIN_TYPES.find(x => x.id === 'fm-suggestion')) PIN_TYPES.push({ id:'fm-suggestion', label:'FM Suggestion', emoji:'🚩', color:'#C0392B', shape:'marker' });
         (data.locations || []).forEach(locData => {
           addLocation(locData.name);
         });
