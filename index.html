@@ -236,7 +236,7 @@
           '</div>' +
           '<div class="field-group" style="margin-bottom:10px;">' +
             '<label class="field-label">Location <span class="req-tag">required</span></label>' +
-            '<select onchange="onLocationSelect(\'' + loc.id + '\', this.value)">' +
+            '<select id="locname-' + loc.id + '" onchange="onLocationSelect(\'' + loc.id + '\', this.value)">' +
               '<option value="">Select a location...</option>' +
               LOCATION_OPTIONS_JS +
             '</select>' +
@@ -256,8 +256,17 @@
     function onLocationSelect(locId, name) {
       const loc = locations.find(l => l.id === locId);
       if (!loc) return;
+      // If pins already exist and the venue is actually changing, confirm before wiping them
+      if (loc.pins && loc.pins.length && loc.name && name !== loc.name) {
+        const ok = confirm('Changing the location will remove the ' + loc.pins.length + ' item(s) you placed on this map. Continue?');
+        if (!ok) {
+          // revert the dropdown to the previous value
+          const sel = document.getElementById('locname-' + locId);
+          if (sel) sel.value = loc.name;
+          return;
+        }
+      }
       loc.name = name;
-      // reset pins if location changed
       loc.pins = []; loc.markers = [];
       if (loc.map) { loc.map.remove(); loc.map = null; loc.mapReady = false; }
       if (name) { renderMapArea(locId); loadLocationMap(locId); }
@@ -542,9 +551,10 @@
         if (loc.map && loc.pins.length) {
           try {
             const mapEl = document.getElementById('map-' + loc.id);
-            mapEl.scrollIntoView({ block: 'center' });
-            await new Promise(r => setTimeout(r, 300));
-            const canvas = await html2canvas(mapEl, { useCORS: true, scale: 2, backgroundColor: null, scrollY: -window.scrollY });
+            if (loc.map) loc.map.invalidateSize();
+            await new Promise(r => setTimeout(r, 250));
+            const rect = mapEl.getBoundingClientRect();
+            const canvas = await html2canvas(mapEl, { useCORS: true, scale: 2, backgroundColor: null, scrollX: -window.scrollX, scrollY: -window.scrollY, x: 0, y: 0, width: rect.width, height: rect.height });
             shot = canvas.toDataURL('image/png');
           } catch(e) { console.warn('Screenshot failed:', e); }
         }
@@ -576,14 +586,17 @@
       };
 
       const btn = document.querySelector('.btn-submit');
-      if (btn) btn.disabled = true;
+      if (btn) { btn.disabled = true; btn.dataset.label = btn.textContent; btn.textContent = 'Submitting\u2026'; }
       const eb = document.getElementById('error-banner'); if (eb) eb.style.display = 'none';
       try {
         const res = await fetch(POWER_AUTOMATE_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!res.ok) throw new Error();
         const sm = document.getElementById('success-msg'); if (sm) { sm.style.display = 'block'; sm.scrollIntoView({ behavior: 'smooth' }); }
-      } catch { if (eb) eb.style.display = 'block'; }
-      finally { if (btn) btn.disabled = false; }
+        if (btn) btn.textContent = 'Submitted \u2713';
+      } catch {
+        if (eb) eb.style.display = 'block';
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.label || 'Submit'; }
+      }
     }
 
     function resetForm() {
