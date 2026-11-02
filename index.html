@@ -110,6 +110,17 @@
       </div>
     </div>
     <div class="form-section">
+      <div class="section-title"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> Event details</div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label" for="event-name">Event name <span class="req-tag">required</span></label><input type="text" id="event-name" placeholder="e.g. School of Nursing Final Exercises"></div>
+        <div class="field-group"><label class="field-label" for="event-date">Event date <span class="req-tag">required</span></label><input type="date" id="event-date"></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label" for="setup-time">Setup time <span class="req-tag">required</span></label><input type="time" id="setup-time"></div>
+        <div class="field-group"></div>
+      </div>
+    </div>
+    <div class="form-section">
       <div class="section-title"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> 25Live confirmation</div>
       <div class="note-box info" style="margin-bottom:10px;">Paste your 25Live event confirmation below, or upload it as a file. This gives FM all the event details without re-entering them.</div>
       <div class="field-row full"><div class="field-group"><label class="field-label" for="confirmation-text">Paste confirmation here</label><textarea id="confirmation-text" placeholder="Copy and paste the text from your 25Live confirmation email..." style="min-height:120px;"></textarea></div></div>
@@ -528,7 +539,7 @@
 
     // ── Submit ──
     async function submitForm() {
-      const required = ['org-name','org-email'];
+      const required = ['org-name','org-email','event-name','event-date','setup-time'];
       let firstError = null;
       required.forEach(id => {
         const el = document.getElementById(id);
@@ -573,6 +584,9 @@
       const payload = {
         organizerName: document.getElementById('org-name').value.trim(),
         email: document.getElementById('org-email').value.trim(),
+        eventName: (document.getElementById('event-name') || {}).value ? document.getElementById('event-name').value.trim() : '',
+        eventDate: (document.getElementById('event-date') || {}).value || '',
+        setupTime: (document.getElementById('setup-time') || {}).value || '',
         locations: locationData.map(l => l.name).join('; '),
         locationCount: locationData.length,
         locationDetails: locationData.map((l,i) => 'Location ' + (i+1) + ' — ' + l.name + ': ' + l.pins).join(' || '),
@@ -611,9 +625,16 @@
 
     // ── Review link (encodes all locations) ──
     function getReviewLink() {
+      const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
       const data = {
         org: document.getElementById('org-name').value,
         email: document.getElementById('org-email').value,
+        eventName: g('event-name'),
+        eventDate: g('event-date'),
+        setupTime: g('setup-time'),
+        confirmationText: g('confirmation-text'),
+        powerNotes: g('power-notes'),
+        fmNotes: g('fm-notes'),
         locations: locations.filter(l => l.name).map(loc => ({
           name: loc.name,
           pins: loc.pins.map(p => ({
@@ -642,6 +663,13 @@
         const fmb = document.getElementById('fm-banner'); if (fmb) fmb.classList.add('show');
         if (data.org && document.getElementById('org-name')) document.getElementById('org-name').value = data.org;
         if (data.email && document.getElementById('org-email')) document.getElementById('org-email').value = data.email;
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+        setVal('event-name', data.eventName);
+        setVal('event-date', data.eventDate);
+        setVal('setup-time', data.setupTime);
+        setVal('confirmation-text', data.confirmationText);
+        setVal('power-notes', data.powerNotes);
+        setVal('fm-notes', data.fmNotes);
         if (!PIN_TYPES.find(x => x.id === 'fm-suggestion')) PIN_TYPES.push({ id:'fm-suggestion', label:'FM Suggestion', emoji:'🚩', color:'#C0392B', shape:'marker' });
         (data.locations || []).forEach(locData => {
           addLocation(locData.name);
